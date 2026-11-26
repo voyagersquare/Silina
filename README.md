@@ -1,4 +1,4 @@
-# Sila 0.2.0
+# Sila 0.3.0
 
 **Sila** je tape saturation plugin (VST3 + Standalone, Windows x64) by Voyagersquare.
 Sučelje je kazeta koja leži na drvenom stolu među papirima s bilješkama. Kontrole su crni bakelitni
@@ -30,12 +30,24 @@ Dvoklik na kotačić vraća zadanu vrijednost. Prozor se može povećati/smanjit
 ## Obrada signala
 
 ```text
-INPUT → pre-emphasis → 4x oversampling: magnetsko zasićenje (tanh, asimetrija i HF gubitak ovise o BIAS-u)
+INPUT → pre-emphasis → 4x oversampling: magnetska histereza trake (Jiles–Atherton, RK2)
       → de-emphasis → head bump + low cut + HF roll-off (ovisno o brzini)
       → wow & flutter (modulirana linija kašnjenja) → AUTO GAIN → MIX (dry poravnat) → OUTPUT
 ```
 
+Srce plugina je fizikalni model magnetiziranja trake (Jiles–Atherton histereza, isti pristup kao u
+CHOW Tape modelu, Chowdhury, DAFx 2019), a ne obična `tanh` krivulja. Traka "pamti" smjer signala,
+pa glasni dijelovi dobivaju meku kompresiju, 3. harmonik i lagano zaobljene tranzijente.
+
+- **Kalibracija:** sinus na −14 dBFS je referentna razina trake (0 VU). Na INPUT 0 dB miks na
+  masteru već jasno ulazi u traku (oko 4 % harmonika na −12 dBFS, vrhovi blizu 0 dBFS
+  komprimirani za nekoliko dB). Tihi signal prolazi gotovo neizmijenjen.
+- **BIAS** mijenja širinu histereze: under-bias je prljaviji, s parnim harmonicima; over-bias je
+  glađi i tamniji.
+- **Head bump:** 7.5 IPS +3,5 dB oko 60 Hz, 15 IPS +2,5 dB oko 95 Hz, 30 IPS +1,5 dB oko 150 Hz.
+
 Latencija je fiksna (oversampling FIR + osnovno kašnjenje transporta, ~2–3 ms) i javlja se DAW-u.
+Opterećenje procesora: oko 7 % jedne jezgre za stereo na 44,1 kHz.
 
 ## Build
 

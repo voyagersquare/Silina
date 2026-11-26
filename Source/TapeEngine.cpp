@@ -100,12 +100,12 @@ double TapeEngine::emphasisFrequency (int speed) noexcept
 
 double TapeEngine::headBumpFrequency (int speed) noexcept
 {
-    switch (speed) { case 0: return 55.0; case 2: return 160.0; default: return 90.0; }
+    switch (speed) { case 0: return 60.0; case 2: return 150.0; default: return 95.0; }
 }
 
 double TapeEngine::headBumpGainDb (int speed) noexcept
 {
-    switch (speed) { case 0: return 3.0; case 2: return 1.2; default: return 2.0; }
+    switch (speed) { case 0: return 3.5; case 2: return 1.5; default: return 2.5; }
 }
 
 double TapeEngine::lowCutFrequency (int speed) noexcept
@@ -116,6 +116,76 @@ double TapeEngine::lowCutFrequency (int speed) noexcept
 double TapeEngine::highCutFrequency (int speed) noexcept
 {
     switch (speed) { case 0: return 11000.0; case 2: return 21000.0; default: return 17000.0; }
+}
+
+//==============================================================================
+namespace
+{
+    constexpr double couplingA = 0.03; // alpha * Ms / a
+
+    inline double langevin (double x) noexcept
+    {
+        return std::abs (x) > 1.0e-4 ? 1.0 / std::tanh (x) - 1.0 / x : x / 3.0;
+    }
+
+    inline double langevinDeriv (double x) noexcept
+    {
+        if (std::abs (x) <= 1.0e-4)
+            return 1.0 / 3.0;
+        const double s = std::sinh (x);
+        return 1.0 / (x * x) - 1.0 / (s * s);
+    }
+
+    // dm/dt for normalised Jiles-Atherton magnetisation.
+    inline double hysteresisRate (double m, double h, double hd, double k, double c) noexcept
+    {
+        const double q = h + couplingA * m;
+        const double diff = langevin (q) - m;
+        const double delta = hd >= 0.0 ? 1.0 : -1.0;
+        const double deltaM = (delta > 0.0) == (diff > 0.0) ? 1.0 : 0.0;
+        const double denom = (1.0 - c) * delta * k - couplingA * diff;
+        const double irreversible = std::abs (denom) > 1.0e-9 ? (1.0 - c) * deltaM * diff / denom : 0.0;
+        const double lp = langevinDeriv (q);
+        return hd * (irreversible + c * lp) / (1.0 - c * couplingA * lp);
+    }
+}
+
+double TapeEngine::Hysteresis::process (double h, double T, double k, double c) noexcept
+{
+    // Trapezoidal derivative of the field, then a midpoint (RK2) step.
+    double hd = 2.0 * (h - hPrev) / T - hdPrev;
+    hd = juce::jlimit (-1.0e7, 1.0e7, hd);
+
+    const double k1 = T * hysteresisRate (m, hPrev, hdPrev, k, c);
+    const double k2 = T * hysteresisRate (m + 0.5 * k1, 0.5 * (h + hPrev), 0.5 * (hd + hdPrev), k, c);
+    m += k2;
+
+    if (! std::isfinite (m))
+    {
+        reset();
+        return 0.0;
+    }
+
+    m = juce::jlimit (-1.2, 1.2, m);
+    hPrev = h;
+    hdPrev = hd;
+    return m;
+}
+
+double TapeEngine::hysteresisGainAt (double bias) const noexcept
+{
+    const double pos = juce::jlimit (0.0, 1.0, bias) * (double) (hysteresisGain.size() - 1);
+    const int i = juce::jmin ((int) pos, (int) hysteresisGain.size() - 2);
+    const double t = pos - (double) i;
+    return hysteresisGain[(size_t) i] + (hysteresisGain[(size_t) i + 1] - hysteresisGain[(size_t) i]) * t;
+}
+
+double TapeEngine::hysteresisRestAt (double bias) const noexcept
+{
+    const double pos = juce::jlimit (0.0, 1.0, bias) * (double) (hysteresisRest.size() - 1);
+    const int i = juce::jmin ((int) pos, (int) hysteresisRest.size() - 2);
+    const double t = pos - (double) i;
+    return hysteresisRest[(size_t) i] + (hysteresisRest[(size_t) i + 1] - hysteresisRest[(size_t) i]) * t;
 }
 
 double TapeEngine::transportScale (int speed) noexcept
@@ -135,6 +205,36 @@ void TapeEngine::prepare (double newSampleRate, int maxBlockSize, int newNumChan
         juce::dsp::Oversampling<float>::filterHalfBandFIREquiripple, true, true);
     oversampling->initProcessing ((size_t) maxBlock);
     oversamplingLatency = (int) std::lround (oversampling->getLatencyInSamples());
+
+    // Measure the tape's gain at a moderate level (h = 0.5, about -24 dBFS) for each bias
+    // setting, so quiet material passes at roughly unity and loud material is compressed.
+    {
+        const double osRate = sampleRate * (double) (1 << oversamplingOrder);
+        const double T = 1.0 / osRate;
+        const int total = (int) (osRate * 0.03), settle = total / 2;
+        for (size_t i = 0; i < hysteresisGain.size(); ++i)
+        {
+            const double bias = (double) i / (double) (hysteresisGain.size() - 1);
+            Hysteresis probe;
+            double peak = 1.0e-9;
+            for (int n = 0; n < total; ++n)
+            {
+                const double h = 0.5 * std::sin (twoPi * 400.0 * (double) n * T);
+                const double m = probe.process (h, T, biasCoercivity (bias), biasReversibility (bias));
+                if (n >= settle)
+                    peak = juce::jmax (peak, std::abs (m));
+            }
+            hysteresisGain[i] = peak / 0.5;
+
+            // Where the tape settles with only the asymmetry offset applied (silence).
+            Hysteresis rest;
+            const int ramp = (int) (osRate * 0.01);
+            double m = 0.0;
+            for (int n = 0; n <= ramp; ++n)
+                m = rest.process (biasAsymmetry (bias) * (double) n / (double) ramp, T, biasCoercivity (bias), biasReversibility (bias));
+            hysteresisRest[i] = m;
+        }
+    }
 
     const double maxDeviation = (maxWowMs + maxFlutterMs) * transportScale (0) * 0.001 * sampleRate;
     transportBaseDelayInt = (int) std::ceil (maxDeviation) + 3;
@@ -178,7 +278,10 @@ void TapeEngine::reset()
     {
         ch.preEmphasis.reset(); ch.deEmphasis.reset(); ch.headBump.reset();
         ch.lowCut.reset(); ch.highCut.reset();
-        ch.magnetisation = 0.0;
+        ch.tape.reset();
+        ch.tape.m = hysteresisRestAt (target.bias);
+        ch.tape.hPrev = biasAsymmetry (target.bias);
+        ch.hfLoss = 0.0;
         std::fill (ch.transport.begin(), ch.transport.end(), 0.0f);
         std::fill (ch.dry.begin(), ch.dry.end(), 0.0f);
         ch.dryWrite = 0;
@@ -340,36 +443,41 @@ void TapeEngine::processChunk (float* const* data, int numCh, int n) noexcept
     {
         auto* x = up.getChannelPointer ((size_t) ch);
         auto& state = channels[(size_t) ch];
-        double m = state.magnetisation;
 
-        double prevBias = -1.0, asym = 0.0, tanhAsym = 0.0, norm = 1.0, coeff = 1.0;
+        double lp = state.hfLoss;
+        const double T = 1.0 / osRate;
+
+        double prevBias = -1.0, k = 1.0, c = 0.7, asym = 0.0, rest = 0.0, norm = 1.0, coeff = 1.0;
         for (int j = 0; j < upN; ++j)
         {
             const double bias = biasStart + (biasEnd - biasStart) * (double) (j + 1) / (double) upN;
             if (std::abs (bias - prevBias) > 1.0e-9)
             {
                 prevBias = bias;
-                // Under-bias: asymmetric transfer (even harmonics) and brighter top.
-                // Over-bias: symmetric, smoother and darker.
-                asym = 0.30 * (1.0 - bias);
-                tanhAsym = std::tanh (asym);
-                norm = 1.0 / (1.0 - tanhAsym * tanhAsym);
-                const double fc = juce::jmin (30000.0 * std::pow (0.3, bias), osRate * 0.45);
+                // Under-bias: wide hysteresis, gritty and slightly asymmetric (even harmonics).
+                // Over-bias: narrow hysteresis, smooth, with a darker top end.
+                k = biasCoercivity (bias);
+                c = biasReversibility (bias);
+                asym = biasAsymmetry (bias);
+                rest = hysteresisRestAt (bias);
+                norm = 1.0 / (hysteresisGainAt (bias) * recordLevel);
+                const double fc = juce::jmin (26000.0 * std::pow (0.5, bias), osRate * 0.45);
                 coeff = 1.0 - std::exp (-twoPi * fc / osRate);
             }
 
             const double in = (double) x[j];
-            const double shaped = (std::tanh (in + asym) - tanhAsym) * norm;
-            m += coeff * (shaped - m);
+            const double m = state.tape.process (in * recordLevel + asym, T, k, c);
+            const double shaped = (m - rest) * norm;
+            lp += coeff * (shaped - lp);
 
             inputEnergy += in * in;
             const double err = in - shaped;
             errorEnergy += err * err;
 
-            x[j] = (float) m;
+            x[j] = (float) lp;
         }
 
-        state.magnetisation = std::abs (m) < 1.0e-20 ? 0.0 : m;
+        state.hfLoss = std::abs (lp) < 1.0e-20 ? 0.0 : lp;
     }
 
     oversampling->processSamplesDown (block);

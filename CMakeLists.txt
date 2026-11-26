@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.22)
-project(Sila VERSION 0.2.0 LANGUAGES C CXX)
+project(Sila VERSION 0.3.0 LANGUAGES C CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 if(MSVC)
@@ -52,3 +52,9 @@ target_include_directories(sila_processor_tests PRIVATE Source "${juce_SOURCE_DI
 target_compile_definitions(sila_processor_tests PRIVATE JUCE_GLOBAL_MODULE_SETTINGS_INCLUDED=1)
 target_link_libraries(sila_processor_tests PRIVATE Sila)
 add_test(NAME processor_dsp_and_editor COMMAND sila_processor_tests)
+
+add_executable(sila_benchmark EXCLUDE_FROM_ALL tests/Benchmark.cpp)
+target_include_directories(sila_benchmark PRIVATE Source "${juce_SOURCE_DIR}/modules"
+  "${CMAKE_CURRENT_BINARY_DIR}/Sila_artefacts/JuceLibraryCode")
+target_compile_definitions(sila_benchmark PRIVATE JUCE_GLOBAL_MODULE_SETTINGS_INCLUDED=1)
+target_link_libraries(sila_benchmark PRIVATE Sila)

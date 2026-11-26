@@ -87,6 +87,23 @@ public:
     static double highCutFrequency (int speed) noexcept;
     static double transportScale (int speed) noexcept;
 
+    // Magnetic tape: Jiles-Atherton hysteresis (as used in physical tape models, e.g.
+    // Chowdhury, "Real-time physical modelling for analog tape machines", DAFx 2019),
+    // normalised so that h = H / a and m = M / Ms. Solved with second-order Runge-Kutta.
+    struct Hysteresis
+    {
+        double m = 0.0, hPrev = 0.0, hdPrev = 0.0;
+        void reset() noexcept { m = hPrev = hdPrev = 0.0; }
+        double process (double h, double T, double coercivity, double reversibility) noexcept;
+    };
+
+    // How hard the record head drives the tape: input x maps to h = x * recordLevel,
+    // so a -14 dBFS sine sits at the tape's reference ("0 VU") level.
+    static constexpr double recordLevel = 5.0;
+    static double biasCoercivity (double bias) noexcept    { return 0.6 + 0.4 * bias; }
+    static double biasReversibility (double bias) noexcept { return 0.5 + 0.38 * bias; }
+    static double biasAsymmetry (double bias) noexcept     { return 0.2 * (1.0 - bias); }
+
 private:
     void updateSpeedFilters() noexcept;
     void updateEmphasisFilters (double emphasisAmount) noexcept;
@@ -110,7 +127,8 @@ private:
     struct ChannelState
     {
         Biquad preEmphasis, deEmphasis, headBump, lowCut, highCut;
-        double magnetisation = 0.0; // bias-dependent HF loss state at the oversampled rate
+        Hysteresis tape;
+        double hfLoss = 0.0; // bias-dependent HF loss state at the oversampled rate
         std::vector<float> transport; // wow & flutter delay line
         std::vector<float> dry;       // latency-matched dry path
         int dryWrite = 0;
@@ -134,6 +152,10 @@ private:
     std::vector<float> gainScratch;
 
     double meterState = 0.0;
+    std::array<double, 11> hysteresisGain {}; // small/medium-signal gain of the tape per bias step
+    std::array<double, 11> hysteresisRest {}; // resting magnetisation under the asymmetry offset
+    double hysteresisGainAt (double bias) const noexcept;
+    double hysteresisRestAt (double bias) const noexcept;
     std::atomic<float> saturationMeter { 0.0f };
     std::atomic<float> outputPeak { 0.0f };
 };
