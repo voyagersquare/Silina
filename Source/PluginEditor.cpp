@@ -811,23 +811,28 @@ void CassetteDeck::paintOverChildren (juce::Graphics& g)
     using namespace juce;
     const auto bounds = getLocalBounds().toFloat();
 
-    // Desk lamp above the upper left: a warm pool of light centred on the cassette,
-    // falling off into shadow towards the edges of the desk.
-    const auto light = cassette.getCentre().translated (-90.0f, -70.0f);
+    // Desk lamp above the upper left, like a reading lamp at night: a bright, warm pool of
+    // light on the cassette and a fast fall-off into a dark room, where the desk and the
+    // papers are only just visible.
+    const auto light = cassette.getCentre().translated (-25.0f, -35.0f);
+    const float stretch = 1.2f; // the pool is wider than it is tall
 
-    ColourGradient warm (Colour (0x1cffc070), light, Colour (0x00ffc070), light.translated (480.0f, 0.0f), true);
-    g.setGradientFill (warm);
-    g.fillRect (bounds);
+    Graphics::ScopedSaveState s (g);
+    g.addTransform (AffineTransform::scale (stretch, 1.0f, light.x, light.y));
+    const auto area = bounds.transformedBy (AffineTransform::scale (1.0f / stretch, 1.0f, light.x, light.y));
 
-    ColourGradient falloff (Colour (0x00000000), light, Colour (0xd8000000), light.translated (950.0f, 0.0f), true);
-    falloff.addColour (0.26, Colour (0x00000000));
-    falloff.addColour (0.55, Colour (0x80000000));
+    ColourGradient glow (Colour (0x3cfff1d6), light, Colour (0x00fff1d6), light.translated (430.0f, 0.0f), true);
+    glow.addColour (0.5, Colour (0x1cfff1d6));
+    g.setGradientFill (glow);
+    g.fillRect (area);
+
+    ColourGradient falloff (Colour (0x00000000), light, Colour (0xee000000), light.translated (1000.0f, 0.0f), true);
+    falloff.addColour (0.25, Colour (0x00000000));
+    falloff.addColour (0.37, Colour (0x58000000));
+    falloff.addColour (0.50, Colour (0xb0000000));
+    falloff.addColour (0.68, Colour (0xdc000000));
     g.setGradientFill (falloff);
-    g.fillRect (bounds);
-
-    // The lamp sits off to the top left, so the far side is a touch darker.
-    g.setGradientFill (ColourGradient (Colour (0x00000000), 0.0f, 0.0f, Colour (0x38000000), bounds.getRight(), bounds.getBottom(), false));
-    g.fillRect (bounds);
+    g.fillRect (area);
 }
 
 void CassetteDeck::paintDesk (juce::Graphics& g)
