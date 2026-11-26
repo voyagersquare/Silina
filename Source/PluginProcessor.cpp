@@ -24,6 +24,8 @@ SilaAudioProcessor::SilaAudioProcessor()
     wowParam      = parameters.getRawParameterValue (sila::ids::wow);
     flutterParam  = parameters.getRawParameterValue (sila::ids::flutter);
     emphasisParam = parameters.getRawParameterValue (sila::ids::emphasis);
+    hissParam     = parameters.getRawParameterValue (sila::ids::hiss);
+    dropoutsParam = parameters.getRawParameterValue (sila::ids::dropouts);
     mixParam      = parameters.getRawParameterValue (sila::ids::mix);
     outputParam   = parameters.getRawParameterValue (sila::ids::output);
     autoGainParam = parameters.getRawParameterValue (sila::ids::autoGain);
@@ -53,6 +55,8 @@ juce::AudioProcessorValueTreeState::ParameterLayout SilaAudioProcessor::createPa
     layout.add (percent (sila::ids::wow, "Wow", 0.0f));
     layout.add (percent (sila::ids::flutter, "Flutter", 0.0f));
     layout.add (percent (sila::ids::emphasis, "Emphasis", 50.0f));
+    layout.add (percent (sila::ids::hiss, "Hiss", 0.0f));
+    layout.add (percent (sila::ids::dropouts, "Dropouts", 0.0f));
     layout.add (percent (sila::ids::mix, "Mix", 100.0f));
 
     layout.add (std::make_unique<AudioParameterFloat> (
@@ -81,6 +85,8 @@ sila::TapeSettings SilaAudioProcessor::readSettings() const noexcept
     s.wow      = wowParam->load() * 0.01f;
     s.flutter  = flutterParam->load() * 0.01f;
     s.emphasis = emphasisParam->load() * 0.01f;
+    s.hiss     = hissParam->load() * 0.01f;
+    s.dropouts = dropoutsParam->load() * 0.01f;
     s.mix      = mixParam->load() * 0.01f;
     s.outputDb = outputParam->load();
     s.autoGain = autoGainParam->load() > 0.5f;

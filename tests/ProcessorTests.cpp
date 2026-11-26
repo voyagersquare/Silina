@@ -221,6 +221,8 @@ int main (int argc, char** argv)
                 setParam (p, sila::ids::output, 12.0f);
                 setParam (p, sila::ids::autoGain, 0.0f);
                 setParam (p, sila::ids::speed, 0.0f);
+                setParam (p, sila::ids::hiss, 100.0f);
+                setParam (p, sila::ids::dropouts, 100.0f);
                 prepare (p, r, 64, channels);
                 juce::Random rnd (7);
                 // Blocks larger than announced must still work.
@@ -228,6 +230,35 @@ int main (int argc, char** argv)
                 ok &= allFinite (out);
             }
         require (ok, "extreme settings stay finite at 44.1/96/192 kHz, mono and stereo, oversized blocks");
+    }
+
+    {
+        // Hiss: silence in gives tape noise out, at a sensible level, and none when off.
+        SilaAudioProcessor p;
+        setParam (p, sila::ids::hiss, 100.0f);
+        prepare (p, rate, 512);
+        auto out = render (p, 48000, 512, [] (int) { return 0.0f; });
+        const double level = 20.0 * std::log10 (rms (out, 4800, 43200) + 1.0e-12);
+        std::printf ("       hiss at 100 %%: %.1f dBFS RMS\n", level);
+        require (level > -55.0 && level < -35.0, "HISS adds audible but moderate tape noise");
+    }
+
+    {
+        // Dropouts: over 8 s of a steady tone, the level dips several dB at least once.
+        auto minLevelDb = [rate] (float amount)
+        {
+            SilaAudioProcessor p;
+            setParam (p, sila::ids::dropouts, amount);
+            prepare (p, rate, 512);
+            auto out = render (p, (int) rate * 8, 512, sine (1000.0, 0.25, rate));
+            double lowest = 0.0;
+            for (size_t start = 4800; start + 480 < out.size(); start += 480)
+                lowest = std::min (lowest, 20.0 * std::log10 (rms (out, start, 480) / (0.25 / std::sqrt (2.0)) + 1.0e-12));
+            return lowest;
+        };
+        const double none = minLevelDb (0.0f), heavy = minLevelDb (100.0f);
+        std::printf ("       lowest 10 ms level: dropouts 0 %% %.1f dB, 100 %% %.1f dB\n", none, heavy);
+        require (none > -1.0 && heavy < -4.0, "DROPOUTS make the level dip, and never when off");
     }
 
     {
@@ -265,12 +296,12 @@ int main (int argc, char** argv)
             auto& deck = silaEditor->getDeck();
             bool allKnobs = true;
             for (auto* id : { sila::ids::input, sila::ids::bias, sila::ids::wow, sila::ids::flutter,
-                              sila::ids::emphasis, sila::ids::mix, sila::ids::output })
+                              sila::ids::emphasis, sila::ids::hiss, sila::ids::dropouts, sila::ids::mix, sila::ids::output })
             {
                 auto* knob = deck.findKnob (id);
                 allKnobs &= knob != nullptr && knob->isVisible() && knob->getParentComponent() == &deck.getCassette() && knob->getBottom() < 256;
             }
-            require (allKnobs, "all seven knobs sit in the upper label area");
+            require (allKnobs, "all nine knobs sit in the upper label area");
 
             deck.getSpeedButton (0).onClick();
             require (p.getSpeedIndex() == 0 && deck.getSpeedButton (0).getToggleState(), "speed button selects 7.5 IPS");

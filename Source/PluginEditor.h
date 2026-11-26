@@ -101,7 +101,7 @@ private:
     SilaAudioProcessor& processor;
     CassetteLookAndFeel lookAndFeel;
 
-    std::array<Knob, 7> knobs;
+    std::array<Knob, 9> knobs;
     std::array<juce::TextButton, 3> speedButtons;
     juce::ToggleButton autoGain { "AUTO GAIN" };
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> autoGainAttachment;

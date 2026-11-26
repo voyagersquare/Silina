@@ -261,6 +261,8 @@ void TapeEngine::prepare (double newSampleRate, int maxBlockSize, int newNumChan
     mixAmount.reset (sampleRate, smoothing);
     wowDepth.reset (sampleRate, 0.1);
     flutterDepth.reset (sampleRate, 0.1);
+    hissAmount.reset (sampleRate, 0.05);
+    dropoutAmount.reset (sampleRate, 0.05);
     biasSmoothed.reset (sampleRate, 0.05);
     autoGainAmount.reset (sampleRate, smoothing);
 
@@ -282,6 +284,9 @@ void TapeEngine::reset()
         ch.tape.m = hysteresisRestAt (target.bias);
         ch.tape.hPrev = biasAsymmetry (target.bias);
         ch.hfLoss = 0.0;
+        ch.hissHigh = ch.hissPrev = ch.hissLow = 0.0;
+        ch.dropoutGain = ch.dropoutDepth = 1.0;
+        ch.dropoutLow = 0.0;
         std::fill (ch.transport.begin(), ch.transport.end(), 0.0f);
         std::fill (ch.dry.begin(), ch.dry.end(), 0.0f);
         ch.dryWrite = 0;
@@ -300,6 +305,9 @@ void TapeEngine::reset()
     mixAmount.setCurrentAndTargetValue (target.mix);
     wowDepth.setCurrentAndTargetValue (target.wow);
     flutterDepth.setCurrentAndTargetValue (target.flutter);
+    hissAmount.setCurrentAndTargetValue (target.hiss);
+    dropoutAmount.setCurrentAndTargetValue (target.dropouts);
+    dropoutRemaining = 0;
     biasSmoothed.setCurrentAndTargetValue (target.bias);
     autoGainAmount.setCurrentAndTargetValue (target.autoGain ? 1.0f : 0.0f);
 
@@ -323,7 +331,9 @@ void TapeEngine::setSettings (const TapeSettings& s) noexcept
     outputGain.setTargetValue (juce::Decibels::decibelsToGain (target.outputDb));
     mixAmount.setTargetValue (target.mix);
     wowDepth.setTargetValue (target.wow);
-    flutterDepth.setTargetValue (target.flutter);
+    flutterDepth.setTargetValue (juce::jlimit (0.0f, 1.0f, target.flutter));
+    hissAmount.setTargetValue (juce::jlimit (0.0f, 1.0f, s.hiss));
+    dropoutAmount.setTargetValue (juce::jlimit (0.0f, 1.0f, s.dropouts));
     biasSmoothed.setTargetValue (target.bias);
     autoGainAmount.setTargetValue (target.autoGain ? 1.0f : 0.0f);
 }
@@ -499,6 +509,16 @@ void TapeEngine::processChunk (float* const* data, int numCh, int n) noexcept
     const int driftPeriod = juce::jmax (1, (int) (sampleRate * 0.45));
     const double driftCoeff = 1.0 - std::exp (-1.0 / (0.35 * sampleRate));
 
+    // Tape hiss: white noise shaped to the bright "shhh" of tape (high-passed, rolled off
+    // with the tape speed). Slower tape is noisier. Full scale is about -42 dBFS RMS.
+    const double hissSpeedGain = currentSpeed == 0 ? 1.41 : (currentSpeed == 2 ? 0.71 : 1.0);
+    const double hissHp = std::exp (-twoPi * 300.0 / sampleRate);
+    const double hissLp = 1.0 - std::exp (-twoPi * juce::jmin (highCutFrequency (currentSpeed), sampleRate * 0.45) / sampleRate);
+    const double hissScale = 0.0079 * 1.73 * hissSpeedGain;
+
+    // Dropouts: oxide flaws briefly lift the tape off the head, the level dips and the highs go first.
+    const double dropoutFollow = 1.0 - std::exp (-1.0 / (0.006 * sampleRate));
+
     for (int i = 0; i < n; ++i)
     {
         // Transport modulation (shared by both channels: one tape, one capstan).
@@ -526,6 +546,23 @@ void TapeEngine::processChunk (float* const* data, int numCh, int n) noexcept
         const double wetMix = mixAmount.getNextValue();
         const double out = outputGain.getNextValue();
 
+        const double hissAmt = hissAmount.getNextValue();
+        const double hissLevel = hissAmt * hissAmt * hissScale;
+        const double dropAmt = dropoutAmount.getNextValue();
+
+        bool dropping = dropoutRemaining > 0;
+        if (dropping)
+            --dropoutRemaining;
+        else if (dropAmt > 0.0 && noise.nextDouble() < dropAmt * 1.2 / sampleRate)
+        {
+            // Start a dropout: 20-120 ms long, 3-20 dB deep (deeper with more DROPOUTS).
+            dropoutRemaining = (int) ((0.02 + 0.10 * noise.nextDouble()) * sampleRate);
+            const double depthDb = (3.0 + 17.0 * noise.nextDouble()) * std::sqrt (dropAmt);
+            for (int ch = 0; ch < numCh; ++ch)
+                channels[(size_t) ch].dropoutDepth = std::pow (10.0, -depthDb * (0.8 + 0.4 * noise.nextDouble()) / 20.0);
+            dropping = true;
+        }
+
         for (int ch = 0; ch < numCh; ++ch)
         {
             auto& s = channels[(size_t) ch];
@@ -536,7 +573,30 @@ void TapeEngine::processChunk (float* const* data, int numCh, int n) noexcept
             y = s.highCut.process (y);
 
             s.transport[(size_t) transportWrite] = (float) y;
-            const double wet = readDelay (ch, delay) * makeup;
+            double wet = readDelay (ch, delay) * makeup;
+
+            if (hissLevel > 0.0)
+            {
+                const double white = noise.nextDouble() * 2.0 - 1.0;
+                s.hissHigh = hissHp * (s.hissHigh + white - s.hissPrev);
+                s.hissPrev = white;
+                s.hissLow += hissLp * (s.hissHigh - s.hissLow);
+                wet += s.hissLow * hissLevel;
+            }
+
+            const double dropTarget = dropping ? s.dropoutDepth : 1.0;
+            s.dropoutGain += dropoutFollow * (dropTarget - s.dropoutGain);
+            if (s.dropoutGain < 0.9995)
+            {
+                const double fc = 1500.0 + 18500.0 * s.dropoutGain * s.dropoutGain;
+                s.dropoutLow += (1.0 - std::exp (-twoPi * juce::jmin (fc, sampleRate * 0.45) / sampleRate)) * (wet - s.dropoutLow);
+                wet = s.dropoutLow * s.dropoutGain;
+            }
+            else
+            {
+                s.dropoutGain = 1.0;
+                s.dropoutLow = wet;
+            }
 
             // Latency-matched dry signal.
             const double dry = (double) s.dry[(size_t) s.dryWrite];

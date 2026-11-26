@@ -20,6 +20,8 @@ od stolne lampe gore lijevo: najsvjetlije je na sredini kasete, prema rubovima s
 | **WOW** | 0 … 100 % | Sporo titranje visine tona (~0,55 Hz + nasumični drift). |
 | **FLUTTER** | 0 … 100 % | Brzo titranje (6,3 Hz + 11,7 Hz). |
 | **EMPHASIS** | 0 … 100 % | Pre-/de-emphasis (0–12 dB). Visoke frekvencije ranije ulaze u zasićenje, a ukupni odziv ostaje ravan. |
+| **HISS** | 0 … 100 % | Šum trake (svijetli "šššš"). Sporija traka šumi više; na 100 % oko −43 dBFS. Čuje se i u tišini, kao prava traka. |
+| **DROPOUTS** | 0 … 100 % | Kratka ispadanja signala (20–120 ms, do −20 dB) kao na izlizanoj traci; tijekom ispadanja prvo nestaju visoke. Više = češće i dublje. |
 | **MIX** | 0 … 100 % | Dry/wet. Dry je poravnat s latencijom, pa nema faznih problema. |
 | **OUTPUT** | −24 … +12 dB | Izlazna razina. |
 | **TAPE SPEED** | 7.5 / 15 / 30 IPS | 7.5: toplije, veći head bump (~55 Hz), visoke padaju od ~11 kHz, više wow/fluttera. 30: čišće i otvorenije. |

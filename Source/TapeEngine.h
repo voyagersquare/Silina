@@ -19,6 +19,8 @@ struct TapeSettings
     float wow       = 0.0f;   // 0 .. 1
     float flutter   = 0.0f;   // 0 .. 1
     float emphasis  = 0.5f;   // 0 .. 1 pre-/de-emphasis amount
+    float hiss      = 0.0f;   // 0 .. 1 tape noise
+    float dropouts  = 0.0f;   // 0 .. 1 how often and how deep the signal drops out
     float mix       = 1.0f;   // 0 .. 1 dry/wet
     float outputDb  = 0.0f;   // -24 .. +12 dB
     bool  autoGain  = true;   // compensate output for the input drive
@@ -117,7 +119,7 @@ private:
     int currentSpeed = -1;
     double currentEmphasis = -1.0;
 
-    juce::SmoothedValue<float> inputGain, outputGain, mixAmount, wowDepth, flutterDepth;
+    juce::SmoothedValue<float> inputGain, outputGain, mixAmount, wowDepth, flutterDepth, hissAmount, dropoutAmount;
     juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> biasSmoothed;
     juce::SmoothedValue<float> autoGainAmount;
 
@@ -130,6 +132,8 @@ private:
         Hysteresis tape;
         double hfLoss = 0.0; // bias-dependent HF loss state at the oversampled rate
         std::vector<float> transport; // wow & flutter delay line
+        double hissHigh = 0.0, hissPrev = 0.0, hissLow = 0.0; // noise shaping
+        double dropoutGain = 1.0, dropoutLow = 0.0, dropoutDepth = 1.0;
         std::vector<float> dry;       // latency-matched dry path
         int dryWrite = 0;
     };
@@ -144,6 +148,8 @@ private:
     double driftState = 0.0, driftTarget = 0.0;
     int driftCounter = 0;
     juce::Random random { 0x51714A };
+    juce::Random noise { 0x7A9E };
+    int dropoutRemaining = 0;
 
     int latencySamples = 0;
     int dryLength = 1;

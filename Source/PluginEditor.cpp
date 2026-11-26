@@ -34,9 +34,11 @@ namespace
     constexpr KnobSpec knobSpecs[] = {
         { ids::input,    "INPUT" },
         { ids::bias,     "BIAS" },
+        { ids::emphasis, "EMPHASIS" },
         { ids::wow,      "WOW" },
         { ids::flutter,  "FLUTTER" },
-        { ids::emphasis, "EMPHASIS" },
+        { ids::hiss,     "HISS" },
+        { ids::dropouts, "DROPOUTS" },
         { ids::mix,      "MIX" },
         { ids::output,   "OUTPUT" },
     };
@@ -50,7 +52,7 @@ namespace
     const juce::Point<float> reelLeft  { 292.0f, 331.0f };
     const juce::Point<float> reelRight { 708.0f, 331.0f };
     constexpr float wellRadius = 52.0f, hubRadius = 46.5f, fullPackRadius = 178.0f;
-    constexpr float knobTop = 72.0f, knobHeight = 176.0f, knobLeft = 76.0f, knobWidth = 121.0f;
+    constexpr float knobTop = 72.0f, knobHeight = 176.0f, knobLeft = 76.0f, knobWidth = 848.0f / 9.0f;
     constexpr float dialSweep = juce::MathConstants<float>::pi * 5.0f / 3.0f; // 300 degrees
 
     //==========================================================================
@@ -649,11 +651,11 @@ void CassetteLookAndFeel::drawRotarySlider (juce::Graphics& g, int x, int y, int
     const float labelH = 30.0f, valueH = 30.0f;
 
     g.setColour (colours::ink);
-    g.setFont (handFont (25.0f));
+    g.setFont (handFont (22.0f));
     g.drawText (slider.getName(), bounds.withHeight (labelH), Justification::centred, false);
 
     g.setColour (colours::penBlue);
-    g.setFont (handFont (24.0f));
+    g.setFont (handFont (21.0f));
     g.drawText (slider.getTextFromValue (slider.getValue()),
                 bounds.withTop (bounds.getBottom() - valueH), Justification::centred, false);
 
@@ -1052,7 +1054,7 @@ void CassetteDeck::paintLabel (juce::Graphics& g)
     g.drawHorizontalLine (64, 76.0f, 924.0f);
     g.drawHorizontalLine (250, 76.0f, 924.0f);
     g.setColour (colours::rule.withAlpha (0.45f));
-    for (int i = 1; i < 7; ++i)
+    for (int i = 1; i < 9; ++i)
         g.drawVerticalLine ((int) (knobLeft + knobWidth * (float) i), 72.0f, 244.0f);
 
     g.setGradientFill (ColourGradient (colours::orange.brighter (0.08f), 0.0f, stripeArea.getY(),

@@ -11,6 +11,8 @@ namespace sila::ids
     inline constexpr const char* wow      = "wow";
     inline constexpr const char* flutter  = "flutter";
     inline constexpr const char* emphasis = "emphasis";
+    inline constexpr const char* hiss     = "hiss";
+    inline constexpr const char* dropouts = "dropouts";
     inline constexpr const char* mix      = "mix";
     inline constexpr const char* output   = "output";
     inline constexpr const char* autoGain = "autogain";
@@ -66,6 +68,8 @@ private:
     std::atomic<float>* wowParam = nullptr;
     std::atomic<float>* flutterParam = nullptr;
     std::atomic<float>* emphasisParam = nullptr;
+    std::atomic<float>* hissParam = nullptr;
+    std::atomic<float>* dropoutsParam = nullptr;
     std::atomic<float>* mixParam = nullptr;
     std::atomic<float>* outputParam = nullptr;
     std::atomic<float>* autoGainParam = nullptr;
