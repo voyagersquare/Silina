@@ -1,10 +1,12 @@
-# Silina 0.1.0
+# Sila 0.2.0
 
-**Silina** je tape saturation plugin (VST3 + Standalone, Windows x64) by Voyagersquare.
-Sučelje je kazeta: kontrole su na INDEX naljepnici na vrhu, koluti se okreću dok prolazi zvuk,
-a narančasta strelica zažari kad traka ulazi u zasićenje.
+**Sila** je tape saturation plugin (VST3 + Standalone, Windows x64) by Voyagersquare.
+Sučelje je kazeta koja leži na drvenom stolu među papirima s bilješkama. Kontrole su crni bakelitni
+brojčanici (0–10) na INDEX naljepnici; trenutna vrijednost je ispod crne oznake iznad brojčanika.
+Čim se plugin otvori, koluti se okreću kao u kasetofonu: manji namotaj vrti se brže, a traka se
+polako premotava s lijevog na desni kolut. Sav tekst je ručno pisan (font Covered By Your Grace).
 
-![Silina](docs/preview.png)
+![Sila](docs/preview.png)
 
 ## Kontrole
 
@@ -20,7 +22,7 @@ a narančasta strelica zažari kad traka ulazi u zasićenje.
 | **TAPE SPEED** | 7.5 / 15 / 30 IPS | 7.5: toplije, veći head bump (~55 Hz), visoke padaju od ~11 kHz, više wow/fluttera. 30: čišće i otvorenije. |
 | **AUTO GAIN** | uklj./isklj. | Izlaz se spušta za isto koliko je INPUT podignut — za pošteno A/B uspoređivanje. |
 
-Dvoklik na kotačić vraća zadanu vrijednost. Prozor se može povećati/smanjiti (60–160 %).
+Dvoklik na kotačić vraća zadanu vrijednost. Prozor se može povećati/smanjiti (50–150 %).
 
 ## Obrada signala
 
@@ -45,4 +47,4 @@ ctest --test-dir build --output-on-failure
 
 ## Licenca
 
-GPL-3.0. Koristi JUCE 8.0.6 (GPL) i VST3 SDK.
+GPL-3.0. Koristi JUCE 8.0.6 (GPL), VST3 SDK i font Covered By Your Grace (Kimberly Geswein, SIL OFL 1.1, `Assets/Fonts/OFL.txt`).

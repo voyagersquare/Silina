@@ -3,7 +3,7 @@
 #include <JuceHeader.h>
 #include "TapeEngine.h"
 
-namespace silina::ids
+namespace sila::ids
 {
     inline constexpr const char* input    = "input";
     inline constexpr const char* bias     = "bias";
@@ -16,11 +16,11 @@ namespace silina::ids
     inline constexpr const char* autoGain = "autogain";
 }
 
-class SilinaAudioProcessor : public juce::AudioProcessor
+class SilaAudioProcessor : public juce::AudioProcessor
 {
 public:
-    SilinaAudioProcessor();
-    ~SilinaAudioProcessor() override = default;
+    SilaAudioProcessor();
+    ~SilaAudioProcessor() override = default;
 
     void prepareToPlay (double sampleRate, int samplesPerBlock) override;
     void releaseResources() override {}
@@ -49,16 +49,16 @@ public:
     static juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
 
     juce::AudioProcessorValueTreeState& getState() noexcept { return parameters; }
-    const silina::TapeEngine& getEngine() const noexcept { return engine; }
+    const sila::TapeEngine& getEngine() const noexcept { return engine; }
 
     // Current transport speed position (0, 1, 2) for the reel animation.
     int getSpeedIndex() const noexcept { return (int) speedParam->load(); }
 
 private:
-    silina::TapeSettings readSettings() const noexcept;
+    sila::TapeSettings readSettings() const noexcept;
 
     juce::AudioProcessorValueTreeState parameters;
-    silina::TapeEngine engine;
+    sila::TapeEngine engine;
 
     std::atomic<float>* inputParam = nullptr;
     std::atomic<float>* biasParam = nullptr;
@@ -70,5 +70,5 @@ private:
     std::atomic<float>* outputParam = nullptr;
     std::atomic<float>* autoGainParam = nullptr;
 
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (SilinaAudioProcessor)
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (SilaAudioProcessor)
 };

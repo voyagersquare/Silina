@@ -12,24 +12,24 @@ namespace
     }
 }
 
-SilinaAudioProcessor::SilinaAudioProcessor()
+SilaAudioProcessor::SilaAudioProcessor()
     : AudioProcessor (BusesProperties()
                           .withInput ("Input", juce::AudioChannelSet::stereo(), true)
                           .withOutput ("Output", juce::AudioChannelSet::stereo(), true)),
-      parameters (*this, nullptr, "SILINA", createParameterLayout())
+      parameters (*this, nullptr, "SILA", createParameterLayout())
 {
-    inputParam    = parameters.getRawParameterValue (silina::ids::input);
-    biasParam     = parameters.getRawParameterValue (silina::ids::bias);
-    speedParam    = parameters.getRawParameterValue (silina::ids::speed);
-    wowParam      = parameters.getRawParameterValue (silina::ids::wow);
-    flutterParam  = parameters.getRawParameterValue (silina::ids::flutter);
-    emphasisParam = parameters.getRawParameterValue (silina::ids::emphasis);
-    mixParam      = parameters.getRawParameterValue (silina::ids::mix);
-    outputParam   = parameters.getRawParameterValue (silina::ids::output);
-    autoGainParam = parameters.getRawParameterValue (silina::ids::autoGain);
+    inputParam    = parameters.getRawParameterValue (sila::ids::input);
+    biasParam     = parameters.getRawParameterValue (sila::ids::bias);
+    speedParam    = parameters.getRawParameterValue (sila::ids::speed);
+    wowParam      = parameters.getRawParameterValue (sila::ids::wow);
+    flutterParam  = parameters.getRawParameterValue (sila::ids::flutter);
+    emphasisParam = parameters.getRawParameterValue (sila::ids::emphasis);
+    mixParam      = parameters.getRawParameterValue (sila::ids::mix);
+    outputParam   = parameters.getRawParameterValue (sila::ids::output);
+    autoGainParam = parameters.getRawParameterValue (sila::ids::autoGain);
 }
 
-juce::AudioProcessorValueTreeState::ParameterLayout SilinaAudioProcessor::createParameterLayout()
+juce::AudioProcessorValueTreeState::ParameterLayout SilaAudioProcessor::createParameterLayout()
 {
     using namespace juce;
     AudioProcessorValueTreeState::ParameterLayout layout;
@@ -42,29 +42,29 @@ juce::AudioProcessorValueTreeState::ParameterLayout SilinaAudioProcessor::create
     };
 
     layout.add (std::make_unique<AudioParameterFloat> (
-        ParameterID { silina::ids::input, 1 }, "Input", NormalisableRange<float> (-12.0f, 24.0f, 0.1f), 0.0f,
+        ParameterID { sila::ids::input, 1 }, "Input", NormalisableRange<float> (-12.0f, 24.0f, 0.1f), 0.0f,
         AudioParameterFloatAttributes().withLabel ("dB").withStringFromValueFunction (decibelText)));
 
-    layout.add (percent (silina::ids::bias, "Bias", 50.0f));
+    layout.add (percent (sila::ids::bias, "Bias", 50.0f));
 
     layout.add (std::make_unique<AudioParameterChoice> (
-        ParameterID { silina::ids::speed, 1 }, "Tape Speed", StringArray { "7.5 IPS", "15 IPS", "30 IPS" }, 1));
+        ParameterID { sila::ids::speed, 1 }, "Tape Speed", StringArray { "7.5 IPS", "15 IPS", "30 IPS" }, 1));
 
-    layout.add (percent (silina::ids::wow, "Wow", 0.0f));
-    layout.add (percent (silina::ids::flutter, "Flutter", 0.0f));
-    layout.add (percent (silina::ids::emphasis, "Emphasis", 50.0f));
-    layout.add (percent (silina::ids::mix, "Mix", 100.0f));
+    layout.add (percent (sila::ids::wow, "Wow", 0.0f));
+    layout.add (percent (sila::ids::flutter, "Flutter", 0.0f));
+    layout.add (percent (sila::ids::emphasis, "Emphasis", 50.0f));
+    layout.add (percent (sila::ids::mix, "Mix", 100.0f));
 
     layout.add (std::make_unique<AudioParameterFloat> (
-        ParameterID { silina::ids::output, 1 }, "Output", NormalisableRange<float> (-24.0f, 12.0f, 0.1f), 0.0f,
+        ParameterID { sila::ids::output, 1 }, "Output", NormalisableRange<float> (-24.0f, 12.0f, 0.1f), 0.0f,
         AudioParameterFloatAttributes().withLabel ("dB").withStringFromValueFunction (decibelText)));
 
-    layout.add (std::make_unique<AudioParameterBool> (ParameterID { silina::ids::autoGain, 1 }, "Auto Gain", true));
+    layout.add (std::make_unique<AudioParameterBool> (ParameterID { sila::ids::autoGain, 1 }, "Auto Gain", true));
 
     return layout;
 }
 
-bool SilinaAudioProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
+bool SilaAudioProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
 {
     const auto out = layouts.getMainOutputChannelSet();
     if (out != juce::AudioChannelSet::mono() && out != juce::AudioChannelSet::stereo())
@@ -72,9 +72,9 @@ bool SilinaAudioProcessor::isBusesLayoutSupported (const BusesLayout& layouts) c
     return layouts.getMainInputChannelSet() == out;
 }
 
-silina::TapeSettings SilinaAudioProcessor::readSettings() const noexcept
+sila::TapeSettings SilaAudioProcessor::readSettings() const noexcept
 {
-    silina::TapeSettings s;
+    sila::TapeSettings s;
     s.inputDb  = inputParam->load();
     s.bias     = biasParam->load() * 0.01f;
     s.speed    = (int) speedParam->load();
@@ -87,7 +87,7 @@ silina::TapeSettings SilinaAudioProcessor::readSettings() const noexcept
     return s;
 }
 
-void SilinaAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
+void SilaAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
     const int channels = juce::jmax (1, getTotalNumOutputChannels());
     engine.setSettings (readSettings());
@@ -95,7 +95,7 @@ void SilinaAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock
     setLatencySamples (engine.getLatencySamples());
 }
 
-void SilinaAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer&)
+void SilaAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer&)
 {
     juce::ScopedNoDenormals noDenormals;
 
@@ -106,12 +106,12 @@ void SilinaAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce:
     engine.process (buffer);
 }
 
-juce::AudioProcessorEditor* SilinaAudioProcessor::createEditor()
+juce::AudioProcessorEditor* SilaAudioProcessor::createEditor()
 {
-    return new SilinaAudioProcessorEditor (*this);
+    return new SilaAudioProcessorEditor (*this);
 }
 
-void SilinaAudioProcessor::getStateInformation (juce::MemoryBlock& destData)
+void SilaAudioProcessor::getStateInformation (juce::MemoryBlock& destData)
 {
     auto state = parameters.copyState();
     state.setProperty ("version", JucePlugin_VersionString, nullptr);
@@ -119,7 +119,7 @@ void SilinaAudioProcessor::getStateInformation (juce::MemoryBlock& destData)
         copyXmlToBinary (*xml, destData);
 }
 
-void SilinaAudioProcessor::setStateInformation (const void* data, int sizeInBytes)
+void SilaAudioProcessor::setStateInformation (const void* data, int sizeInBytes)
 {
     if (auto xml = getXmlFromBinary (data, sizeInBytes))
         if (xml->hasTagName (parameters.state.getType()))
@@ -128,5 +128,5 @@ void SilinaAudioProcessor::setStateInformation (const void* data, int sizeInByte
 
 juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()
 {
-    return new SilinaAudioProcessor();
+    return new SilaAudioProcessor();
 }

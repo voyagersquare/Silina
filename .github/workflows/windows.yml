@@ -30,7 +30,7 @@ jobs:
         shell: pwsh
         run: |
           $validator = (Get-ChildItem pluginval -Filter pluginval.exe -Recurse | Select-Object -First 1).FullName
-          $plugin = Join-Path $PWD 'build/Silina_artefacts/Release/VST3/Silina.vst3'
+          $plugin = Join-Path $PWD 'build/Sila_artefacts/Release/VST3/Sila.vst3'
           New-Item -ItemType Directory -Force validation | Out-Null
           $arguments = @('--strictness-level', '5', '--validate', "`"$plugin`"", '--output-dir', "`"$PWD/validation`"", '--timeout-ms', '120000')
           $process = Start-Process -FilePath $validator -ArgumentList $arguments -Wait -PassThru -NoNewWindow -RedirectStandardOutput "$PWD/validation/stdout.txt" -RedirectStandardError "$PWD/validation/stderr.txt"
@@ -41,17 +41,18 @@ jobs:
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force package/ThirdParty | Out-Null
-          Copy-Item 'build/Silina_artefacts/Release/VST3/Silina.vst3' package -Recurse
-          Copy-Item 'build/Silina_artefacts/Release/Standalone/Silina.exe' package
+          Copy-Item 'build/Sila_artefacts/Release/VST3/Sila.vst3' package -Recurse
+          Copy-Item 'build/Sila_artefacts/Release/Standalone/Sila.exe' package
           Copy-Item README.md, LICENSE package
+          Copy-Item Assets/Fonts/OFL.txt package/ThirdParty/CoveredByYourGrace-OFL.txt
           Copy-Item build/_deps/juce-src/LICENSE.md package/ThirdParty/JUCE-LICENSE.md
           Copy-Item build/_deps/juce-src/modules/juce_audio_processors/format_types/VST3_SDK/LICENSE.txt package/ThirdParty/VST3-LICENSE.txt
-          git archive --format=zip --output=package/Silina-source.zip HEAD
+          git archive --format=zip --output=package/Sila-source.zip HEAD
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Upload portable Windows x64 package
         uses: actions/upload-artifact@v4
         with:
-          name: Silina-0.1.0-Windows-x64
+          name: Sila-0.2.0-Windows-x64
           path: package/
           if-no-files-found: error
           retention-days: 30

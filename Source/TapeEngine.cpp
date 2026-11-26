@@ -3,7 +3,7 @@
 #include <cmath>
 #include <complex>
 
-namespace silina
+namespace sila
 {
 
 namespace
@@ -447,4 +447,4 @@ void TapeEngine::processChunk (float* const* data, int numCh, int n) noexcept
     }
 }
 
-} // namespace silina
+} // namespace sila

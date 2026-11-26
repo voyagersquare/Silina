@@ -1,5 +1,5 @@
-// Silina processor, DSP and editor checks.
-// Usage: silina_processor_tests [directory-for-ui-snapshot]
+// Sila processor, DSP and editor checks.
+// Usage: sila_processor_tests [directory-for-ui-snapshot]
 
 #include <JuceHeader.h>
 #include "PluginProcessor.h"
@@ -21,13 +21,13 @@ namespace
             ++failures;
     }
 
-    void setParam (SilinaAudioProcessor& p, const char* id, float value)
+    void setParam (SilaAudioProcessor& p, const char* id, float value)
     {
         auto* param = p.getState().getParameter (id);
         param->setValueNotifyingHost (param->convertTo0to1 (value));
     }
 
-    void prepare (SilinaAudioProcessor& p, double rate, int block, int channels = 2)
+    void prepare (SilaAudioProcessor& p, double rate, int block, int channels = 2)
     {
         const auto set = channels == 1 ? juce::AudioChannelSet::mono() : juce::AudioChannelSet::stereo();
         juce::AudioProcessor::BusesLayout layout;
@@ -39,7 +39,7 @@ namespace
     }
 
     // Render a mono generator through the processor in blocks; returns channel 0.
-    std::vector<float> render (SilinaAudioProcessor& p, int numSamples, int block,
+    std::vector<float> render (SilaAudioProcessor& p, int numSamples, int block,
                                const std::function<float (int)>& generator)
     {
         std::vector<float> out ((size_t) numSamples);
@@ -103,7 +103,7 @@ int main (int argc, char** argv)
     const double rate = 48000.0;
 
     {
-        SilinaAudioProcessor p;
+        SilaAudioProcessor p;
         prepare (p, rate, 512);
         require (p.getLatencySamples() > 0 && p.getLatencySamples() == p.getEngine().getLatencySamples(),
                  "reports the engine latency to the host");
@@ -112,10 +112,10 @@ int main (int argc, char** argv)
 
     {
         // Mix 0 must be a bit-exact, latency-aligned dry path.
-        SilinaAudioProcessor p;
-        setParam (p, silina::ids::mix, 0.0f);
-        setParam (p, silina::ids::input, 18.0f);
-        setParam (p, silina::ids::wow, 100.0f);
+        SilaAudioProcessor p;
+        setParam (p, sila::ids::mix, 0.0f);
+        setParam (p, sila::ids::input, 18.0f);
+        setParam (p, sila::ids::wow, 100.0f);
         prepare (p, rate, 256);
         const int latency = p.getLatencySamples();
         auto out = render (p, 4096, 256, [] (int i) { return i == 100 ? 1.0f : 0.0f; });
@@ -126,7 +126,7 @@ int main (int argc, char** argv)
     }
 
     {
-        SilinaAudioProcessor p;
+        SilaAudioProcessor p;
         prepare (p, rate, 512);
         auto out = render (p, 48000, 512, [] (int) { return 0.0f; });
         require (rms (out, 0, out.size()) < 1.0e-7, "silence in gives silence out");
@@ -134,7 +134,7 @@ int main (int argc, char** argv)
 
     {
         // Default settings are transparent for quiet signals (unity small-signal gain).
-        SilinaAudioProcessor p;
+        SilaAudioProcessor p;
         prepare (p, rate, 512);
         auto out = render (p, 48000, 512, sine (1000.0, 0.01, rate));
         const double gainDb = 20.0 * std::log10 (amplitudeAt (out, 24000, 16384, 1000.0, rate) / 0.01);
@@ -144,9 +144,9 @@ int main (int argc, char** argv)
 
     auto harmonics = [rate] (float inputDb, float biasPercent, double& second, double& third, double& fundamentalDb)
     {
-        SilinaAudioProcessor p;
-        setParam (p, silina::ids::input, inputDb);
-        setParam (p, silina::ids::bias, biasPercent);
+        SilaAudioProcessor p;
+        setParam (p, sila::ids::input, inputDb);
+        setParam (p, sila::ids::bias, biasPercent);
         prepare (p, rate, 512);
         auto out = render (p, 65536, 512, sine (375.0, 0.25, rate)); // exact bin-friendly frequency
         const double f = amplitudeAt (out, 32768, 32768, 375.0, rate);
@@ -176,8 +176,8 @@ int main (int argc, char** argv)
     {
         auto highs = [rate] (int speed)
         {
-            SilinaAudioProcessor p;
-            setParam (p, silina::ids::speed, (float) speed);
+            SilaAudioProcessor p;
+            setParam (p, sila::ids::speed, (float) speed);
             prepare (p, rate, 512);
             auto out = render (p, 48000, 512, sine (15000.0, 0.01, rate));
             return 20.0 * std::log10 (amplitudeAt (out, 24000, 16384, 15000.0, rate) / 0.01);
@@ -190,9 +190,9 @@ int main (int argc, char** argv)
     {
         auto renderWow = [rate] (float wow, float flutter)
         {
-            SilinaAudioProcessor p;
-            setParam (p, silina::ids::wow, wow);
-            setParam (p, silina::ids::flutter, flutter);
+            SilaAudioProcessor p;
+            setParam (p, sila::ids::wow, wow);
+            setParam (p, sila::ids::flutter, flutter);
             prepare (p, rate, 512);
             return render (p, 96000, 512, sine (1000.0, 0.1, rate));
         };
@@ -212,15 +212,15 @@ int main (int argc, char** argv)
         for (double r : { 44100.0, 96000.0, 192000.0 })
             for (int channels : { 1, 2 })
             {
-                SilinaAudioProcessor p;
-                setParam (p, silina::ids::input, 24.0f);
-                setParam (p, silina::ids::bias, 0.0f);
-                setParam (p, silina::ids::wow, 100.0f);
-                setParam (p, silina::ids::flutter, 100.0f);
-                setParam (p, silina::ids::emphasis, 100.0f);
-                setParam (p, silina::ids::output, 12.0f);
-                setParam (p, silina::ids::autoGain, 0.0f);
-                setParam (p, silina::ids::speed, 0.0f);
+                SilaAudioProcessor p;
+                setParam (p, sila::ids::input, 24.0f);
+                setParam (p, sila::ids::bias, 0.0f);
+                setParam (p, sila::ids::wow, 100.0f);
+                setParam (p, sila::ids::flutter, 100.0f);
+                setParam (p, sila::ids::emphasis, 100.0f);
+                setParam (p, sila::ids::output, 12.0f);
+                setParam (p, sila::ids::autoGain, 0.0f);
+                setParam (p, sila::ids::speed, 0.0f);
                 prepare (p, r, 64, channels);
                 juce::Random rnd (7);
                 // Blocks larger than announced must still work.
@@ -231,44 +231,44 @@ int main (int argc, char** argv)
     }
 
     {
-        SilinaAudioProcessor a;
-        setParam (a, silina::ids::input, 7.5f);
-        setParam (a, silina::ids::bias, 23.0f);
-        setParam (a, silina::ids::speed, 2.0f);
-        setParam (a, silina::ids::wow, 41.0f);
-        setParam (a, silina::ids::autoGain, 0.0f);
+        SilaAudioProcessor a;
+        setParam (a, sila::ids::input, 7.5f);
+        setParam (a, sila::ids::bias, 23.0f);
+        setParam (a, sila::ids::speed, 2.0f);
+        setParam (a, sila::ids::wow, 41.0f);
+        setParam (a, sila::ids::autoGain, 0.0f);
         juce::MemoryBlock state;
         a.getStateInformation (state);
 
-        SilinaAudioProcessor b;
+        SilaAudioProcessor b;
         b.setStateInformation (state.getData(), (int) state.getSize());
         auto value = [&b] (const char* id) { return b.getState().getRawParameterValue (id)->load(); };
-        require (std::abs (value (silina::ids::input) - 7.5f) < 0.01f && std::abs (value (silina::ids::bias) - 23.0f) < 0.01f
-                     && (int) value (silina::ids::speed) == 2 && std::abs (value (silina::ids::wow) - 41.0f) < 0.01f
-                     && value (silina::ids::autoGain) < 0.5f,
+        require (std::abs (value (sila::ids::input) - 7.5f) < 0.01f && std::abs (value (sila::ids::bias) - 23.0f) < 0.01f
+                     && (int) value (sila::ids::speed) == 2 && std::abs (value (sila::ids::wow) - 41.0f) < 0.01f
+                     && value (sila::ids::autoGain) < 0.5f,
                  "state round-trips all parameters");
 
         const char junk[] = "not a state";
         b.setStateInformation (junk, (int) sizeof (junk));
-        require (std::abs (value (silina::ids::input) - 7.5f) < 0.01f, "invalid state is ignored");
+        require (std::abs (value (sila::ids::input) - 7.5f) < 0.01f, "invalid state is ignored");
     }
 
     {
-        SilinaAudioProcessor p;
+        SilaAudioProcessor p;
         prepare (p, rate, 512);
         std::unique_ptr<juce::AudioProcessorEditor> editor (p.createEditor());
-        auto* silinaEditor = dynamic_cast<SilinaAudioProcessorEditor*> (editor.get());
-        require (silinaEditor != nullptr, "editor opens");
+        auto* silaEditor = dynamic_cast<SilaAudioProcessorEditor*> (editor.get());
+        require (silaEditor != nullptr, "editor opens");
 
-        if (silinaEditor != nullptr)
+        if (silaEditor != nullptr)
         {
-            auto& deck = silinaEditor->getDeck();
+            auto& deck = silaEditor->getDeck();
             bool allKnobs = true;
-            for (auto* id : { silina::ids::input, silina::ids::bias, silina::ids::wow, silina::ids::flutter,
-                              silina::ids::emphasis, silina::ids::mix, silina::ids::output })
+            for (auto* id : { sila::ids::input, sila::ids::bias, sila::ids::wow, sila::ids::flutter,
+                              sila::ids::emphasis, sila::ids::mix, sila::ids::output })
             {
                 auto* knob = deck.findKnob (id);
-                allKnobs &= knob != nullptr && knob->isVisible() && knob->getBottom() < 18 + 256;
+                allKnobs &= knob != nullptr && knob->isVisible() && knob->getBottom() < (int) deck.getCassetteBounds().getY() + 256;
             }
             require (allKnobs, "all seven knobs sit in the upper label area");
 
@@ -276,22 +276,23 @@ int main (int argc, char** argv)
             require (p.getSpeedIndex() == 0 && deck.getSpeedButton (0).getToggleState(), "speed button selects 7.5 IPS");
             deck.getSpeedButton (1).onClick();
 
-            auto* inputKnob = deck.findKnob (silina::ids::input);
+            auto* inputKnob = deck.findKnob (sila::ids::input);
             inputKnob->setValue (12.0, juce::sendNotificationSync);
-            require (std::abs (p.getState().getRawParameterValue (silina::ids::input)->load() - 12.0f) < 0.01f,
+            require (std::abs (p.getState().getRawParameterValue (sila::ids::input)->load() - 12.0f) < 0.01f,
                      "turning INPUT updates the parameter");
             inputKnob->setValue (6.0, juce::sendNotificationSync);
 
-            editor->setSize (1040 * 3 / 2, 680 * 3 / 2);
+            editor->setSize (1400 * 3 / 2, 820 * 3 / 2);
             require (std::abs (deck.getTransform().mat00 - 1.5f) < 0.01f, "editor scales the cassette when resized");
-            editor->setSize (1040, 680);
+            editor->setSize (1400, 820);
 
             // Run some audio so the reels turn and the arrow glows, then snapshot.
-            setParam (p, silina::ids::input, 14.0f);
+            setParam (p, sila::ids::input, 14.0f);
             render (p, 9600, 480, sine (220.0, 0.4, rate));
-            const float before = deck.getReelAngle();
+            const float before = deck.getReelAngle(), tapeBefore = deck.getTapePosition();
             deck.advanceAnimation (0.5f);
-            require (std::abs (deck.getReelAngle() - before) > 1.0e-4f, "reels turn while audio plays");
+            require (std::abs (deck.getReelAngle() - before) > 1.0e-4f, "reels turn as soon as the plugin is open");
+            require (deck.getTapePosition() > tapeBefore, "tape winds from one reel to the other");
 
             if (argc > 1)
             {

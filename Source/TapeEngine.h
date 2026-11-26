@@ -5,7 +5,7 @@
 #include <atomic>
 #include <vector>
 
-namespace silina
+namespace sila
 {
 
 // Tape speed positions exposed as the "speed" choice parameter.
@@ -138,4 +138,4 @@ private:
     std::atomic<float> outputPeak { 0.0f };
 };
 
-} // namespace silina
+} // namespace sila
