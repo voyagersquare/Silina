@@ -1128,34 +1128,62 @@ void CassetteDeck::paintTapePack (juce::Graphics& g, juce::Point<float> c, float
 void CassetteDeck::paintHub (juce::Graphics& g, juce::Point<float> c, float radius, float angle)
 {
     using namespace juce;
-    const float hubR = radius, holeR = hubR * 0.58f;
+    const float hubR = radius, holeR = hubR * 0.86f; // thin white ring around a wide opening
+    const auto circle = [c] (float r) { return Rectangle<float> (r * 2.0f, r * 2.0f).withCentre (c); };
 
-    g.setGradientFill (ColourGradient (Colours::white, c.x - hubR * 0.4f, c.y - hubR * 0.5f,
-                                       Colour (0xffd2cdc6), c.x + hubR * 0.6f, c.y + hubR, true));
-    g.fillEllipse (Rectangle<float> (hubR * 2.0f, hubR * 2.0f).withCentre (c));
-    g.setColour (Colour (0x50000000));
-    g.drawEllipse (Rectangle<float> (hubR * 2.0f, hubR * 2.0f).withCentre (c), 1.0f);
-
-    g.setColour (Colour (0xff5b5650));
-    g.fillEllipse (Rectangle<float> (holeR * 2.0f, holeR * 2.0f).withCentre (c));
-
+    // Six wide, short teeth on the inside of the ring.
+    Path teeth;
     for (int i = 0; i < 6; ++i)
     {
+        const float base = holeR * 0.46f, tip = holeR * 0.38f, len = holeR * 0.24f;
         Path tooth;
-        const float tw = holeR * 0.36f, tl = holeR * 0.46f;
-        tooth.addRoundedRectangle (-tw * 0.5f, -holeR - 1.0f, tw, tl, 1.5f);
-        tooth.applyTransform (AffineTransform::rotation (angle + (float) i * MathConstants<float>::pi / 3.0f).translated (c));
-        g.setColour (Colour (0xfff2efea));
-        g.fillPath (tooth);
+        tooth.startNewSubPath (-base * 0.5f, -holeR - 2.0f);
+        tooth.lineTo (base * 0.5f, -holeR - 2.0f);
+        tooth.lineTo (tip * 0.5f, -holeR + len);
+        tooth.lineTo (-tip * 0.5f, -holeR + len);
+        tooth.closeSubPath();
+        teeth.addPath (tooth, AffineTransform::rotation (angle + (float) i * MathConstants<float>::pi / 3.0f).translated (c));
     }
 
-    for (int i = 0; i < 3; ++i)
+    // Through the opening you see the desk below. The ring and teeth throw a shadow onto it,
+    // away from the lamp, so the part of the opening nearest the lamp is dark.
+    const auto worldCast = CassetteLookAndFeel::castShadow (getLocalPoint (&body, c), 45.0f);
+    const auto cast = worldCast.transformedBy (AffineTransform::rotation (-CassetteLookAndFeel::worldRotation));
+    const auto deskTransform = cassetteTransform.inverted();
+    const Colour shade (0xb4000000);
     {
-        const float a = angle + MathConstants<float>::pi / 6.0f + (float) i * MathConstants<float>::twoPi / 3.0f;
-        const Point<float> dir (std::sin (a), -std::cos (a));
-        g.setColour (Colour (0x30000000));
-        g.drawLine (Line<float> (c + dir * (holeR + 3.0f), c + dir * (hubR - 3.0f)), 2.0f);
+        Path hole;
+        hole.addEllipse (circle (holeR));
+        Graphics::ScopedSaveState s (g);
+        g.reduceClipRegion (hole);
+        g.drawImageTransformed (desk, deskTransform);
+        g.setColour (shade);
+        g.fillPath (hole);
+
+        Path lit;
+        lit.addEllipse (circle (holeR).translated (cast.x, cast.y));
+        g.reduceClipRegion (lit);
+        g.drawImageTransformed (desk, deskTransform);
+        g.setColour (shade);
+        g.fillPath (teeth, AffineTransform::translation (cast));
     }
+
+    // White ring.
+    Path ring;
+    ring.addEllipse (circle (hubR));
+    ring.addEllipse (circle (holeR));
+    ring.setUsingNonZeroWinding (false);
+    g.setGradientFill (ColourGradient (Colours::white, c.x - hubR * 0.4f, c.y - hubR * 0.5f,
+                                       Colour (0xffd2cdc6), c.x + hubR * 0.6f, c.y + hubR, true));
+    g.fillPath (ring);
+    g.setColour (Colour (0xfff2efea));
+    g.fillPath (teeth);
+
+    g.setColour (Colour (0x50000000));
+    g.drawEllipse (circle (hubR), 1.0f);
+    g.setColour (Colour (0x40000000));
+    g.drawEllipse (circle (holeR), 0.8f);
+    g.strokePath (teeth, PathStrokeType (0.6f));
 }
 
 void CassetteDeck::paintWindow (juce::Graphics& g)
