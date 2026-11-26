@@ -23,7 +23,7 @@ public:
     void drawButtonText (juce::Graphics&, juce::TextButton&, bool highlighted, bool down) override;
     void drawToggleButton (juce::Graphics&, juce::ToggleButton&, bool highlighted, bool down) override;
 
-    static void drawDialKnob (juce::Graphics&, juce::Point<float> centre, float radius, float position);
+    static void drawDialKnob (juce::Graphics&, juce::Point<float> centre, float radius, float position, int wearSeed = 0);
 };
 
 // The cassette lying on a wooden desk, drawn at a fixed logical size and scaled by the editor.
@@ -37,6 +37,7 @@ public:
     ~CassetteDeck() override;
 
     void paint (juce::Graphics&) override;
+    void paintOverChildren (juce::Graphics&) override;
     void resized() override;
 
     // Exposed for tests.
@@ -82,6 +83,7 @@ private:
 
     juce::Rectangle<float> cassette;
     juce::Image desk;
+    juce::Image wear; // scratches, grime and stains over the cassette
 
     float reelAngleLeft = 0.0f, reelAngleRight = 0.7f;
     float tapePosition = 0.35f; // 0 = all tape on the left reel, 1 = all on the right

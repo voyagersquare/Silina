@@ -137,32 +137,300 @@ namespace
         return image;
     }
 
-    // A sheet of ruled paper with hand-written notes.
+    //==========================================================================
+    // Ageing helpers: liquid stain rings, scratches.
+
+    // An irregular dried-liquid ring: faint tinted interior and a darker rim.
+    void drawStain (juce::Graphics& g, juce::Point<float> c, float radius, juce::Colour colour, int seed, float strength = 1.0f)
+    {
+        using namespace juce;
+        Path rim;
+        const float wobblePhase = hash (seed, 1) * 10.0f;
+        for (int i = 0; i <= 96; ++i)
+        {
+            const float a = MathConstants<float>::twoPi * (float) i / 96.0f;
+            const float r = radius * (0.93f + 0.10f * valueNoise (a * 2.2f + wobblePhase, (float) seed));
+            const Point<float> p (c.x + r * std::cos (a), c.y + r * 0.96f * std::sin (a));
+            if (i == 0) rim.startNewSubPath (p); else rim.lineTo (p);
+        }
+        rim.closeSubPath();
+
+        g.setColour (colour.withAlpha (0.10f * strength));
+        g.fillPath (rim);
+        g.setColour (colour.withAlpha (0.28f * strength));
+        g.strokePath (rim, PathStrokeType (radius * 0.07f));
+        g.setColour (colour.withAlpha (0.40f * strength));
+        g.strokePath (rim, PathStrokeType (1.3f));
+
+        // Partial second ring where the glass was put down again.
+        Path second;
+        const float start = hash (seed, 2) * MathConstants<float>::twoPi;
+        const Point<float> c2 = c.translated (radius * 0.12f, -radius * 0.08f);
+        second.addCentredArc (c2.x, c2.y, radius * 0.97f, radius * 0.95f, 0.0f, start, start + 3.6f, true);
+        g.setColour (colour.withAlpha (0.22f * strength));
+        g.strokePath (second, PathStrokeType (1.6f));
+    }
+
+    // Juice drops and a small splash.
+    void drawSplash (juce::Graphics& g, juce::Point<float> c, float size, juce::Colour colour, int seed)
+    {
+        juce::Random r (seed);
+        for (int i = 0; i < 9; ++i)
+        {
+            const float d = size * (0.2f + 1.4f * r.nextFloat());
+            const float a = r.nextFloat() * juce::MathConstants<float>::twoPi;
+            const float rr = size * (0.06f + 0.22f * r.nextFloat()) * (i == 0 ? 2.6f : 1.0f);
+            const auto p = i == 0 ? c : c.translated (d * std::cos (a), d * std::sin (a));
+            g.setColour (colour.withAlpha (0.16f + 0.12f * r.nextFloat()));
+            g.fillEllipse (juce::Rectangle<float> (rr * 2.0f, rr * 1.8f).withCentre (p));
+            g.setColour (colour.withAlpha (0.30f));
+            g.drawEllipse (juce::Rectangle<float> (rr * 2.0f, rr * 1.8f).withCentre (p), 1.0f);
+        }
+    }
+
+    void drawScratches (juce::Graphics& g, juce::Random& r, juce::Rectangle<float> area, int count,
+                        float minLength, float maxLength, float angleCentre, float angleSpread,
+                        juce::Colour light, juce::Colour dark, float alphaScale)
+    {
+        using namespace juce;
+        for (int i = 0; i < count; ++i)
+        {
+            const Point<float> p (area.getX() + r.nextFloat() * area.getWidth(), area.getY() + r.nextFloat() * area.getHeight());
+            const float len = minLength + (maxLength - minLength) * r.nextFloat() * r.nextFloat();
+            const float a = angleCentre + (r.nextFloat() * 2.0f - 1.0f) * angleSpread;
+            const Point<float> dir (std::cos (a), std::sin (a)), normal (-dir.y, dir.x);
+            const float bend = (r.nextFloat() - 0.5f) * len * 0.25f;
+
+            Path scratch;
+            scratch.startNewSubPath (p);
+            scratch.quadraticTo (p + dir * (len * 0.5f) + normal * bend, p + dir * len);
+            const float width = 0.5f + 0.8f * r.nextFloat();
+            const float alpha = (0.10f + 0.22f * r.nextFloat()) * alphaScale;
+
+            g.setColour (dark.withAlpha (alpha * 0.6f));
+            g.strokePath (scratch, PathStrokeType (width + 0.4f), AffineTransform::translation (0.6f, 0.8f));
+            g.setColour (light.withAlpha (alpha));
+            g.strokePath (scratch, PathStrokeType (width));
+        }
+    }
+
+    // Juice stains, scratches and dents on the old desk.
+    void ageDesk (juce::Image& image)
+    {
+        using namespace juce;
+        Graphics g (image);
+        const Colour juice (0xff5c1c0c), cola (0xff2a140a);
+
+        drawStain (g, { 108.0f, 58.0f }, 46.0f, juice, 11, 2.0f);
+        drawStain (g, { 1318.0f, 498.0f }, 40.0f, cola, 12, 1.8f);
+        drawStain (g, { 640.0f, 790.0f }, 52.0f, juice, 13, 1.8f);
+        drawStain (g, { 1250.0f, 790.0f }, 34.0f, juice, 14, 1.6f);
+        drawStain (g, { 120.0f, 630.0f }, 44.0f, cola, 15, 1.8f);
+        drawSplash (g, { 160.0f, 760.0f }, 26.0f, juice, 21);
+        drawSplash (g, { 1350.0f, 30.0f }, 22.0f, juice, 22);
+        drawSplash (g, { 420.0f, 40.0f }, 18.0f, cola, 23);
+
+        Random r (4242);
+        const Rectangle<float> all (0.0f, 0.0f, (float) image.getWidth(), (float) image.getHeight());
+        drawScratches (g, r, all, 700, 12.0f, 240.0f, 0.0f, 0.35f, Colour (0xffe6c39a), Colour (0xff1a0d05), 1.7f);
+        drawScratches (g, r, all, 160, 8.0f, 110.0f, 0.0f, 3.14f, Colour (0xffe6c39a), Colour (0xff1a0d05), 1.5f);
+
+        for (int i = 0; i < 140; ++i)
+        {
+            const Point<float> p (r.nextFloat() * all.getWidth(), r.nextFloat() * all.getHeight());
+            const float d = 1.0f + 2.5f * r.nextFloat();
+            g.setColour (Colour (0xff140a04).withAlpha (0.25f + 0.2f * r.nextFloat()));
+            g.fillEllipse (Rectangle<float> (d, d * 0.8f).withCentre (p));
+        }
+
+        // Worn varnish where hands rest: duller, lighter patches.
+        for (auto c : { Point<float> (700.0f, 790.0f), Point<float> (90.0f, 420.0f) })
+        {
+            g.setGradientFill (ColourGradient (Colour (0x22e8c9a0), c, Colour (0x00e8c9a0), c.translated (220.0f, 0.0f), true));
+            g.fillEllipse (Rectangle<float> (440.0f, 260.0f).withCentre (c));
+        }
+    }
+
+    // Grime, yellowing, rubbed paint, stains and scratches of a much-played cassette.
+    juce::Image makeCassetteWear()
+    {
+        using namespace juce;
+        const int w = (int) casW, h = (int) casH;
+        Image image (Image::ARGB, w, h, true);
+
+        {
+            Image::BitmapData data (image, Image::BitmapData::readWrite);
+            for (int y = 0; y < h; ++y)
+                for (int x = 0; x < w; ++x)
+                {
+                    const float fx = (float) x, fy = (float) y;
+                    const float coarse = fbm (fx * 0.018f, fy * 0.018f, 3);
+                    const float fine = fbm (fx * 0.09f, fy * 0.09f, 3);
+
+                    if (labelArea.contains (fx, fy))
+                    {
+                        // Yellowed, handled paper; darker towards its edges.
+                        const float edge = jmin (fx - labelArea.getX(), labelArea.getRight() - fx,
+                                                 fy - labelArea.getY(), labelArea.getBottom() - fy);
+                        const float edgeWear = jlimit (0.0f, 1.0f, 1.0f - edge / 26.0f);
+                        float alpha = 0.16f + 0.30f * coarse + 0.45f * edgeWear * (0.6f + 0.4f * fine);
+                        Colour c (0xff9a6a1c);
+
+                        // Orange print rubbed off along the stripe edges and at random spots.
+                        if (stripeArea.contains (fx, fy) && ! windowArea.expanded (4.0f).contains (fx, fy))
+                        {
+                            const float rub = coarse * 0.7f + fine * 0.5f + edgeWear * 0.5f;
+                            if (rub > 0.70f)
+                            {
+                                c = Colour (0xfff1e2c8);
+                                alpha = jlimit (0.0f, 0.85f, (rub - 0.70f) * 4.0f);
+                            }
+                        }
+                        data.setPixelColour (x, y, c.withAlpha (alpha));
+                    }
+                    else
+                    {
+                        // Dirt collected in the moulding, worst near the edges and corners.
+                        const float edge = jmin (fx, fy, (float) w - fx, (float) h - fy);
+                        const float edgeDirt = jlimit (0.0f, 1.0f, 1.0f - edge / 60.0f);
+                        float alpha = 0.08f + 0.20f * coarse + 0.40f * edgeDirt * edgeDirt + 0.10f * fine;
+                        Colour c (0xff2e2216);
+
+                        // Abraded, whitish plastic right on the outer rim.
+                        if (edge < 6.0f && fine > 0.55f)
+                        {
+                            c = Colour (0xffe9e2d6);
+                            alpha = 0.25f * (fine - 0.55f) / 0.45f + 0.08f;
+                        }
+                        data.setPixelColour (x, y, c.withAlpha (jlimit (0.0f, 0.6f, alpha)));
+                    }
+                }
+        }
+
+        Graphics g (image);
+
+        // Coffee/juice rings on the label.
+        drawStain (g, { 112.0f, 70.0f }, 40.0f, Colour (0xff6b3a12), 31, 1.6f);
+        drawStain (g, { 904.0f, 462.0f }, 30.0f, Colour (0xff6b3a12), 32, 1.4f);
+        drawSplash (g, { 610.0f, 470.0f }, 12.0f, Colour (0xff6b3a12), 33);
+
+        // Crease across the label corner and greasy fingerprints.
+        g.setColour (Colour (0x30000000));
+        g.drawLine (60.0f, 410.0f, 160.0f, 480.0f, 1.2f);
+        g.setColour (Colour (0x50ffffff));
+        g.drawLine (61.0f, 409.0f, 161.0f, 479.0f, 1.0f);
+        for (auto p : { Point<float> (860.0f, 300.0f), Point<float> (180.0f, 300.0f), Point<float> (500.0f, 560.0f) })
+        {
+            for (float r = 4.0f; r < 22.0f; r += 2.6f)
+            {
+                g.setColour (Colour (0x10000000));
+                g.drawEllipse (Rectangle<float> (r * 2.0f, r * 2.6f).withCentre (p), 0.8f);
+            }
+        }
+
+        // Torn and lifted label corners.
+        for (auto corner : { Point<float> (labelArea.getX(), labelArea.getY()), Point<float> (labelArea.getRight(), labelArea.getBottom()),
+                             Point<float> (labelArea.getRight(), labelArea.getY()) })
+        {
+            Path tear;
+            const float sx = corner.x < casW * 0.5f ? 1.0f : -1.0f, sy = corner.y < casH * 0.5f ? 1.0f : -1.0f;
+            tear.startNewSubPath (corner);
+            tear.lineTo (corner.translated (sx * 22.0f, 0.0f));
+            tear.lineTo (corner.translated (sx * 12.0f, sy * 6.0f));
+            tear.lineTo (corner.translated (sx * 7.0f, sy * 14.0f));
+            tear.lineTo (corner.translated (0.0f, sy * 19.0f));
+            tear.closeSubPath();
+            g.setColour (Colour (0xffb5aa9c));
+            g.fillPath (tear);
+            g.setColour (Colour (0x60000000));
+            g.strokePath (tear, PathStrokeType (0.8f));
+        }
+
+        // Scratches: many on the plastic, a few scuffs over the label and the window.
+        Random r (777);
+        const Colour light (0xfff6f1ea), dark (0xff1a1410);
+        {
+            Graphics::ScopedSaveState s (g);
+            g.excludeClipRegion (labelArea.toNearestInt());
+            drawScratches (g, r, { 0.0f, 0.0f, casW, casH }, 420, 6.0f, 160.0f, 0.0f, 3.14f, light, dark, 2.0f);
+            drawScratches (g, r, { 165.0f, 494.0f, 670.0f, 146.0f }, 200, 4.0f, 50.0f, 0.0f, 0.4f, light, dark, 2.0f);
+        }
+        drawScratches (g, r, windowArea, 70, 6.0f, 110.0f, 0.0f, 3.14f, light, dark, 1.6f);
+        drawScratches (g, r, labelArea, 110, 6.0f, 80.0f, 0.0f, 3.14f, Colour (0xffffffff), Colour (0xff5a4a3a), 1.1f);
+
+        return image;
+    }
+
+    // A sheet of old, handled paper with hand-written notes.
     void drawNotePaper (juce::Graphics& g, juce::Rectangle<float> sheet, float rotation, juce::Colour paperColour,
-                        const juce::StringArray& lines, bool ruled, juce::Colour inkColour, float textSize)
+                        const juce::StringArray& lines, bool ruled, juce::Colour inkColour, float textSize, int seed)
     {
         using namespace juce;
         Graphics::ScopedSaveState s (g);
         g.addTransform (AffineTransform::rotation (rotation, sheet.getCentreX(), sheet.getCentreY()));
 
+        // Outline with one dog-eared corner folded over.
+        const float ear = 26.0f + 16.0f * hash (seed, 7);
+        const bool earTop = hash (seed, 8) > 0.5f;
         Path outline;
-        outline.addRectangle (sheet);
-        DropShadow (Colour (0x55000000), 14, { 3, 6 }).drawForPath (g, outline);
+        if (earTop)
+        {
+            outline.startNewSubPath (sheet.getTopLeft());
+            outline.lineTo (sheet.getRight() - ear, sheet.getY());
+            outline.lineTo (sheet.getRight(), sheet.getY() + ear);
+            outline.lineTo (sheet.getBottomRight());
+            outline.lineTo (sheet.getBottomLeft());
+        }
+        else
+        {
+            outline.startNewSubPath (sheet.getTopLeft());
+            outline.lineTo (sheet.getTopRight());
+            outline.lineTo (sheet.getRight(), sheet.getBottom() - ear);
+            outline.lineTo (sheet.getRight() - ear, sheet.getBottom());
+            outline.lineTo (sheet.getBottomLeft());
+        }
+        outline.closeSubPath();
+        DropShadow (Colour (0x66000000), 14, { 6, 8 }).drawForPath (g, outline);
 
-        g.setGradientFill (ColourGradient (paperColour.brighter (0.04f), sheet.getX(), sheet.getY(),
-                                           paperColour.darker (0.06f), sheet.getRight(), sheet.getBottom(), false));
+        Graphics::ScopedSaveState clip (g);
+        g.reduceClipRegion (outline);
+
+        g.setGradientFill (ColourGradient (paperColour.brighter (0.03f), sheet.getX(), sheet.getY(),
+                                           paperColour.darker (0.10f), sheet.getRight(), sheet.getBottom(), false));
         g.fillRect (sheet);
+
+        // Yellowed, dirty edges.
+        const Colour aged (0xff7a5a28);
+        const float band = 34.0f;
+        g.setGradientFill (ColourGradient (aged.withAlpha (0.28f), sheet.getX(), 0.0f, aged.withAlpha (0.0f), sheet.getX() + band, 0.0f, false));
+        g.fillRect (sheet);
+        g.setGradientFill (ColourGradient (aged.withAlpha (0.28f), sheet.getRight(), 0.0f, aged.withAlpha (0.0f), sheet.getRight() - band, 0.0f, false));
+        g.fillRect (sheet);
+        g.setGradientFill (ColourGradient (aged.withAlpha (0.24f), 0.0f, sheet.getY(), aged.withAlpha (0.0f), 0.0f, sheet.getY() + band, false));
+        g.fillRect (sheet);
+        g.setGradientFill (ColourGradient (aged.withAlpha (0.24f), 0.0f, sheet.getBottom(), aged.withAlpha (0.0f), 0.0f, sheet.getBottom() - band, false));
+        g.fillRect (sheet);
+
+        // Blotchy foxing.
+        Random r (seed);
+        for (int i = 0; i < 26; ++i)
+        {
+            const Point<float> p (sheet.getX() + r.nextFloat() * sheet.getWidth(), sheet.getY() + r.nextFloat() * sheet.getHeight());
+            const float d = 3.0f + 26.0f * r.nextFloat() * r.nextFloat();
+            g.setColour (aged.withAlpha (0.05f + 0.08f * r.nextFloat()));
+            g.fillEllipse (Rectangle<float> (d, d * (0.7f + 0.5f * r.nextFloat())).withCentre (p));
+        }
 
         if (ruled)
         {
-            g.setColour (Colour (0x5579a6d2));
+            g.setColour (Colour (0x4a79a6d2));
             for (float y = sheet.getY() + 54.0f; y < sheet.getBottom() - 10.0f; y += 30.0f)
                 g.drawHorizontalLine ((int) y, sheet.getX(), sheet.getRight());
-            g.setColour (Colour (0x66d66a6a));
+            g.setColour (Colour (0x55d66a6a));
             g.drawVerticalLine ((int) (sheet.getX() + 40.0f), sheet.getY(), sheet.getBottom());
         }
 
-        g.setColour (inkColour);
+        g.setColour (inkColour.withAlpha (0.82f));
         g.setFont (handFont (textSize));
         float y = sheet.getY() + (ruled ? 26.0f : 18.0f);
         for (auto& line : lines)
@@ -171,6 +439,38 @@ namespace
                         Justification::centredLeft, false);
             y += 30.0f;
         }
+
+        // Stain on the sheet, and a fold line from being kept in a pocket.
+        drawStain (g, { sheet.getX() + sheet.getWidth() * (0.3f + 0.5f * hash (seed, 3)),
+                        sheet.getY() + sheet.getHeight() * (0.25f + 0.6f * hash (seed, 4)) },
+                   22.0f + 18.0f * hash (seed, 5), Colour (0xff6b3a12), seed, 0.9f);
+
+        const float foldY = sheet.getY() + sheet.getHeight() * (0.45f + 0.15f * hash (seed, 6));
+        g.setColour (Colour (0x26000000));
+        g.drawLine (sheet.getX(), foldY, sheet.getRight(), foldY + 3.0f, 1.4f);
+        g.setColour (Colour (0x40ffffff));
+        g.drawLine (sheet.getX(), foldY + 1.5f, sheet.getRight(), foldY + 4.5f, 1.2f);
+
+        // Folded-over corner (back of the paper, shaded by the lamp).
+        Path flap;
+        if (earTop)
+        {
+            flap.startNewSubPath (sheet.getRight() - ear, sheet.getY());
+            flap.lineTo (sheet.getRight(), sheet.getY() + ear);
+            flap.lineTo (sheet.getRight() - ear, sheet.getY() + ear);
+        }
+        else
+        {
+            flap.startNewSubPath (sheet.getRight(), sheet.getBottom() - ear);
+            flap.lineTo (sheet.getRight() - ear, sheet.getBottom());
+            flap.lineTo (sheet.getRight() - ear, sheet.getBottom() - ear);
+        }
+        flap.closeSubPath();
+        DropShadow (Colour (0x50000000), 5, { 2, 2 }).drawForPath (g, flap);
+        g.setColour (paperColour.darker (0.18f));
+        g.fillPath (flap);
+        g.setColour (Colour (0x30000000));
+        g.strokePath (flap, PathStrokeType (0.8f));
     }
 }
 
@@ -184,7 +484,7 @@ CassetteLookAndFeel::CassetteLookAndFeel()
     setColour (juce::ToggleButton::textColourId, colours::ink);
 }
 
-void CassetteLookAndFeel::drawDialKnob (juce::Graphics& g, juce::Point<float> c, float radius, float pos)
+void CassetteLookAndFeel::drawDialKnob (juce::Graphics& g, juce::Point<float> c, float radius, float pos, int wearSeed)
 {
     using namespace juce;
     const auto disc = [c] (float r) { return Rectangle<float> (r * 2.0f, r * 2.0f).withCentre (c); };
@@ -192,7 +492,7 @@ void CassetteLookAndFeel::drawDialKnob (juce::Graphics& g, juce::Point<float> c,
     // Soft shadow on the label.
     Path body;
     body.addEllipse (disc (radius));
-    DropShadow (Colour (0x70000000), 12, { 2, 6 }).drawForPath (g, body);
+    DropShadow (Colour (0x80000000), 12, { 6, 8 }).drawForPath (g, body);
 
     // Black bakelite skirt.
     g.setGradientFill (ColourGradient (Colour (0xff3a3835), c.x - radius * 0.3f, c.y - radius * 0.4f,
@@ -216,7 +516,8 @@ void CassetteLookAndFeel::drawDialKnob (juce::Graphics& g, juce::Point<float> c,
         const float a = offset + dialSweep * (float) k / 10.0f;
         Graphics::ScopedSaveState s (g);
         g.addTransform (AffineTransform::rotation (a, c.x, c.y));
-        g.setColour (Colour (0xfff2eee6));
+        // Paint worn out of some engraved numbers.
+        g.setColour (Colour (0xffe8e0cf).withAlpha (0.55f + 0.45f * hash (wearSeed, k)));
         g.drawText (String (k), Rectangle<float> (radius * 0.7f, radius * 0.42f).withCentre ({ c.x, c.y - radius * 0.64f }),
                     Justification::centred, false);
     }
@@ -232,6 +533,20 @@ void CassetteLookAndFeel::drawDialKnob (juce::Graphics& g, juce::Point<float> c,
     g.setColour (Colour (0x30ffffff));
     g.drawEllipse (disc (radius - 0.8f), 1.2f);
 
+    // Fine scratches in the bakelite that turn with the knob, and a rim polished by fingers.
+    {
+        Graphics::ScopedSaveState s (g);
+        g.reduceClipRegion (body);
+        g.addTransform (AffineTransform::rotation (offset, c.x, c.y));
+        Random r (wearSeed);
+        drawScratches (g, r, disc (radius * 0.9f), 7, 3.0f, radius * 0.5f, 0.0f, 3.14f,
+                       Colour (0xffffffff), Colour (0xff000000), 0.6f);
+    }
+    Path polished;
+    polished.addCentredArc (c.x, c.y, radius - 1.5f, radius - 1.5f, 0.0f, -2.2f, -0.2f, true);
+    g.setColour (Colour (0x28ffffff));
+    g.strokePath (polished, PathStrokeType (2.0f));
+
     // Fluted centre cap.
     const float capR = radius * 0.40f;
     Path cap;
@@ -244,7 +559,7 @@ void CassetteLookAndFeel::drawDialKnob (juce::Graphics& g, juce::Point<float> c,
         if (i == 0) cap.startNewSubPath (p); else cap.lineTo (p);
     }
     cap.closeSubPath();
-    DropShadow (Colour (0x90000000), 6, { 1, 3 }).drawForPath (g, cap);
+    DropShadow (Colour (0x90000000), 6, { 3, 4 }).drawForPath (g, cap);
     g.setGradientFill (ColourGradient (Colour (0xff45423f), c.x - capR * 0.6f, c.y - capR * 0.7f,
                                        Colour (0xff080707), c.x + capR, c.y + capR, true));
     g.fillPath (cap);
@@ -281,7 +596,7 @@ void CassetteLookAndFeel::drawRotarySlider (juce::Graphics& g, int x, int y, int
     g.setColour (colours::ink);
     g.drawLine (c.x, c.y - radius - 9.0f, c.x, c.y - radius - 2.0f, 2.4f);
 
-    drawDialKnob (g, c, radius, pos);
+    drawDialKnob (g, c, radius, pos, slider.getName().hashCode());
 
     if (slider.hasKeyboardFocus (true))
     {
@@ -342,8 +657,16 @@ CassetteDeck::CassetteDeck (SilaAudioProcessor& p) : processor (p)
     // The desk texture is generated once and shared by every editor instance.
     static juce::Image sharedDesk;
     if (! sharedDesk.isValid())
+    {
         sharedDesk = makeWoodDesk (logicalWidth, logicalHeight);
+        ageDesk (sharedDesk);
+    }
     desk = sharedDesk;
+
+    static juce::Image sharedWear;
+    if (! sharedWear.isValid())
+        sharedWear = makeCassetteWear();
+    wear = sharedWear;
 
     auto& state = processor.getState();
     for (size_t i = 0; i < knobs.size(); ++i)
@@ -470,8 +793,8 @@ void CassetteDeck::paint (juce::Graphics& g)
     // The cassette lies on the desk.
     Path outline;
     outline.addRoundedRectangle (cassette, 22.0f);
-    DropShadow (Colour (0x80000000), 34, { 10, 18 }).drawForPath (g, outline);
-    DropShadow (Colour (0x60000000), 6, { 2, 3 }).drawForPath (g, outline);
+    DropShadow (Colour (0x90000000), 40, { 22, 26 }).drawForPath (g, outline);
+    DropShadow (Colour (0x70000000), 8, { 5, 6 }).drawForPath (g, outline);
 
     Graphics::ScopedSaveState save (g);
     g.addTransform (AffineTransform::translation (cassette.getX(), cassette.getY()));
@@ -480,6 +803,31 @@ void CassetteDeck::paint (juce::Graphics& g)
     paintLabel (g);
     paintWindow (g);
     paintBottom (g);
+    g.drawImageAt (wear, 0, 0);
+}
+
+void CassetteDeck::paintOverChildren (juce::Graphics& g)
+{
+    using namespace juce;
+    const auto bounds = getLocalBounds().toFloat();
+
+    // Desk lamp above the upper left: a warm pool of light centred on the cassette,
+    // falling off into shadow towards the edges of the desk.
+    const auto light = cassette.getCentre().translated (-90.0f, -70.0f);
+
+    ColourGradient warm (Colour (0x1cffc070), light, Colour (0x00ffc070), light.translated (480.0f, 0.0f), true);
+    g.setGradientFill (warm);
+    g.fillRect (bounds);
+
+    ColourGradient falloff (Colour (0x00000000), light, Colour (0xd8000000), light.translated (950.0f, 0.0f), true);
+    falloff.addColour (0.26, Colour (0x00000000));
+    falloff.addColour (0.55, Colour (0x80000000));
+    g.setGradientFill (falloff);
+    g.fillRect (bounds);
+
+    // The lamp sits off to the top left, so the far side is a touch darker.
+    g.setGradientFill (ColourGradient (Colour (0x00000000), 0.0f, 0.0f, Colour (0x38000000), bounds.getRight(), bounds.getBottom(), false));
+    g.fillRect (bounds);
 }
 
 void CassetteDeck::paintDesk (juce::Graphics& g)
@@ -490,24 +838,24 @@ void CassetteDeck::paintDesk (juce::Graphics& g)
 void CassetteDeck::paintPapers (juce::Graphics& g)
 {
     using namespace juce;
-    const Colour paperWhite (0xfff3efe4), paperOld (0xffe8dfc9), sticky (0xfff3d36b);
+    const Colour paperWhite (0xffeae0c8), paperOld (0xffdccfae), sticky (0xffe2c160);
 
     // Left: a couple of session sheets, partly under the cassette.
-    drawNotePaper (g, { -60.0f, 170.0f, 330.0f, 440.0f }, -0.16f, paperOld, {}, true, colours::pencil, 26.0f);
+    drawNotePaper (g, { -60.0f, 170.0f, 330.0f, 440.0f }, -0.16f, paperOld, {}, true, colours::pencil, 26.0f, 101);
     drawNotePaper (g, { -30.0f, 120.0f, 320.0f, 430.0f }, -0.07f, paperWhite,
                    { "", "Session - mix bus", "vox: +3 dB in", "tape 15 IPS", "bias ~50 %", "wow - just a bit!", "flutter 15 %" },
-                   true, colours::pencil, 26.0f);
+                   true, colours::pencil, 26.0f, 102);
 
     // Right: track list and a sticky note.
     drawNotePaper (g, { 1190.0f, 50.0f, 300.0f, 400.0f }, 0.12f, paperWhite,
                    { "", "SIDE A", "1. Intro", "2. Nocna voznja", "3. Kasetofon", "4. Sila (dub)", "" },
-                   true, colours::penBlue, 26.0f);
+                   true, colours::penBlue, 26.0f, 103);
     drawNotePaper (g, { 1200.0f, 560.0f, 190.0f, 180.0f }, -0.10f, sticky,
-                   { "mix petak!", "", "ne zaboravi", "master -1 dB" }, false, colours::ink, 26.0f);
+                   { "mix petak!", "", "ne zaboravi", "master -1 dB" }, false, colours::ink, 26.0f, 104);
 
     // A small paper at the bottom left.
     drawNotePaper (g, { 30.0f, 660.0f, 240.0f, 200.0f }, 0.09f, paperWhite,
-                   { "", "Trake:", "C60 x 3" }, true, colours::pencil, 24.0f);
+                   { "", "Trake:", "C60 x 3" }, true, colours::pencil, 24.0f, 105);
 }
 
 void CassetteDeck::paintShell (juce::Graphics& g)
@@ -566,7 +914,7 @@ void CassetteDeck::paintLabel (juce::Graphics& g)
 {
     using namespace juce;
 
-    DropShadow (Colour (0x40000000), 6, { 0, 1 }).drawForRectangle (g, labelArea.toNearestInt());
+    DropShadow (Colour (0x48000000), 6, { 2, 2 }).drawForRectangle (g, labelArea.toNearestInt());
     g.setGradientFill (ColourGradient (colours::paper, 0.0f, labelArea.getY(), colours::paperShade, 0.0f, labelArea.getBottom(), false));
     g.fillRoundedRectangle (labelArea, 5.0f);
 
