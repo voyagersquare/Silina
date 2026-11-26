@@ -390,7 +390,7 @@ namespace
             outline.lineTo (sheet.getBottomLeft());
         }
         outline.closeSubPath();
-        DropShadow (Colour (0x66000000), 14, { 6, 8 }).drawForPath (g, outline);
+        DropShadow (Colour (0x60000000), 8, { 3, 4 }).drawForPath (g, outline);
 
         Graphics::ScopedSaveState clip (g);
         g.reduceClipRegion (outline);
@@ -484,13 +484,52 @@ CassetteLookAndFeel::CassetteLookAndFeel()
     setColour (juce::ToggleButton::textColourId, colours::ink);
 }
 
+juce::Point<float> CassetteLookAndFeel::castShadow (juce::Point<float> world, float height) noexcept
+{
+    // Similar triangles: a point h above the desk, lit by a bulb H above the desk at horizontal
+    // distance D, throws its shadow D * h / (H - h) further away from the lamp.
+    const auto away = world - lampPosition;
+    return away * (height / juce::jmax (1.0f, lampHeight - height));
+}
+
+float CassetteLookAndFeel::penumbra (float height) noexcept
+{
+    return lampAperture * height / juce::jmax (1.0f, lampHeight - height);
+}
+
+namespace
+{
+    // Outline swept by a circle moving along v: the shadow of an upright cylinder.
+    juce::Path sweptCircle (juce::Point<float> c, float r, juce::Point<float> v)
+    {
+        juce::Path p;
+        const float len = v.getDistanceFromOrigin();
+        if (len < 0.5f)
+        {
+            p.addEllipse (juce::Rectangle<float> (r * 2.0f, r * 2.0f).withCentre (c));
+            return p;
+        }
+        const juce::Point<float> n (-v.y / len * r, v.x / len * r);
+        const float an = std::atan2 (n.x, -n.y);
+        const auto end = c + v;
+        p.startNewSubPath (c + n);
+        p.lineTo (end + n);
+        p.addCentredArc (end.x, end.y, r, r, 0.0f, an, an - juce::MathConstants<float>::pi);
+        p.lineTo (c - n);
+        p.addCentredArc (c.x, c.y, r, r, 0.0f, an - juce::MathConstants<float>::pi, an - juce::MathConstants<float>::twoPi);
+        p.closeSubPath();
+        return p;
+    }
+}
+
 juce::Point<int> CassetteLookAndFeel::worldOffset (int dx, int dy) noexcept
 {
     const auto p = juce::Point<float> ((float) dx, (float) dy).transformedBy (juce::AffineTransform::rotation (-worldRotation));
     return p.roundToInt();
 }
 
-void CassetteLookAndFeel::drawDialKnob (juce::Graphics& g, juce::Point<float> c, float radius, float pos, int wearSeed)
+void CassetteLookAndFeel::drawDialKnob (juce::Graphics& g, juce::Point<float> c, float radius, float pos, int wearSeed,
+                                        juce::Point<float> worldCentre)
 {
     using namespace juce;
     const auto disc = [c] (float r) { return Rectangle<float> (r * 2.0f, r * 2.0f).withCentre (c); };
@@ -504,7 +543,9 @@ void CassetteLookAndFeel::drawDialKnob (juce::Graphics& g, juce::Point<float> c,
     {
         Graphics::ScopedSaveState s (g);
         g.addTransform (toWorld);
-        DropShadow (Colour (0x80000000), 12, { 6, 8 }).drawForPath (g, body);
+        // Dark contact shadow at the foot (the long cast shadow is drawn by the cassette label,
+        // so it can reach beyond this knob's own bounds).
+        DropShadow (Colour (0x90000000), 5, { 1, 2 }).drawForPath (g, body);
 
         // Black bakelite skirt.
         g.setGradientFill (ColourGradient (Colour (0xff3a3835), c.x - radius * 0.3f, c.y - radius * 0.4f,
@@ -575,7 +616,12 @@ void CassetteLookAndFeel::drawDialKnob (juce::Graphics& g, juce::Point<float> c,
     cap.closeSubPath();
     Graphics::ScopedSaveState capState (g);
     g.addTransform (toWorld);
-    DropShadow (Colour (0x90000000), 6, { 3, 4 }).drawForPath (g, cap);
+    {
+        // The cap stands about 3 mm proud of the skirt.
+        const auto capCast = castShadow (worldCentre, 30.0f);
+        DropShadow (Colour (0x90000000), juce::roundToInt (3.0f + penumbra (30.0f) * 0.5f), {})
+            .drawForPath (g, sweptCircle (c, capR, capCast));
+    }
     g.setGradientFill (ColourGradient (Colour (0xff45423f), c.x - capR * 0.6f, c.y - capR * 0.7f,
                                        Colour (0xff080707), c.x + capR, c.y + capR, true));
     g.fillPath (cap);
@@ -586,6 +632,13 @@ void CassetteLookAndFeel::drawDialKnob (juce::Graphics& g, juce::Point<float> c,
     g.setGradientFill (ColourGradient (Colour (0x55ffffff), c.x - faceR * 0.4f, c.y - faceR * 0.6f,
                                        Colour (0x00ffffff), c.x, c.y, true));
     g.fillEllipse (Rectangle<float> (faceR * 1.2f, faceR * 0.7f).withCentre ({ c.x - faceR * 0.2f, c.y - faceR * 0.4f }));
+}
+
+juce::Point<float> CassetteLookAndFeel::knobGeometry (juce::Rectangle<float> bounds, float& radius) noexcept
+{
+    const auto knobArea = bounds.withTrimmedTop (30.0f).withTrimmedBottom (30.0f);
+    radius = juce::jmin (knobArea.getWidth(), knobArea.getHeight()) * 0.5f - 8.0f;
+    return knobArea.getCentre().translated (0.0f, 2.0f);
 }
 
 void CassetteLookAndFeel::drawRotarySlider (juce::Graphics& g, int x, int y, int width, int height, float pos,
@@ -604,15 +657,15 @@ void CassetteLookAndFeel::drawRotarySlider (juce::Graphics& g, int x, int y, int
     g.drawText (slider.getTextFromValue (slider.getValue()),
                 bounds.withTop (bounds.getBottom() - valueH), Justification::centred, false);
 
-    const auto knobArea = bounds.withTrimmedTop (labelH).withTrimmedBottom (valueH);
-    const float radius = jmin (knobArea.getWidth(), knobArea.getHeight()) * 0.5f - 8.0f;
-    const auto c = knobArea.getCentre().translated (0.0f, 2.0f);
+    float radius = 0.0f;
+    const auto c = knobGeometry (bounds, radius);
 
     // Fixed index mark printed on the label above the dial.
     g.setColour (colours::ink);
     g.drawLine (c.x, c.y - radius - 9.0f, c.x, c.y - radius - 2.0f, 2.4f);
 
-    drawDialKnob (g, c, radius, pos, slider.getName().hashCode());
+    const auto worldCentre = scene != nullptr ? scene->getLocalPoint (&slider, c) : c;
+    drawDialKnob (g, c, radius, pos, slider.getName().hashCode(), worldCentre);
 
     if (slider.hasKeyboardFocus (true))
     {
@@ -672,6 +725,32 @@ CassetteDeck::CassetteDeck (SilaAudioProcessor& p) : processor (p)
     cassetteTransform = juce::AffineTransform::rotation (CassetteLookAndFeel::worldRotation, casW * 0.5f, casH * 0.5f)
                             .translated (cassetteCentre.x - casW * 0.5f, cassetteCentre.y - casH * 0.5f);
     body.painter = [this] (juce::Graphics& g) { paintCassette (g); };
+    CassetteLookAndFeel::scene = this;
+
+    {
+        // The cassette is 12 mm thick: sweep its outline along the cast-shadow vector, then blur
+        // by the lamp's penumbra. Rendered once, since neither the lamp nor the cassette move.
+        const float thickness = 120.0f;
+        const auto cast = CassetteLookAndFeel::castShadow (cassetteCentre, thickness);
+        juce::Path outline;
+        outline.addRoundedRectangle (juce::Rectangle<float> (0.0f, 0.0f, casW, casH), 22.0f);
+        outline.applyTransform (cassetteTransform);
+
+        juce::Image mask (juce::Image::ARGB, logicalWidth, logicalHeight, true);
+        {
+            juce::Graphics mg (mask);
+            mg.setColour (juce::Colours::black);
+            constexpr int steps = 24;
+            for (int i = 0; i <= steps; ++i)
+                mg.fillPath (outline, juce::AffineTransform::translation (cast * ((float) i / (float) steps)));
+        }
+
+        cassetteShadow = juce::Image (juce::Image::ARGB, logicalWidth, logicalHeight, true);
+        juce::Graphics sg (cassetteShadow);
+        juce::DropShadow (juce::Colour (0x8c000000), juce::roundToInt (12.0f + CassetteLookAndFeel::penumbra (thickness) * 0.5f), {})
+            .drawForImage (sg, mask);
+        juce::DropShadow (juce::Colour (0x80000000), 6, { 2, 3 }).drawForPath (sg, outline); // contact shadow
+    }
     body.setBounds (0, 0, (int) casW, (int) casH);
     body.setTransform (cassetteTransform);
     addAndMakeVisible (body);
@@ -733,6 +812,8 @@ CassetteDeck::CassetteDeck (SilaAudioProcessor& p) : processor (p)
 CassetteDeck::~CassetteDeck()
 {
     stopTimer();
+    if (CassetteLookAndFeel::scene == this)
+        CassetteLookAndFeel::scene = nullptr;
     setLookAndFeel (nullptr);
 }
 
@@ -815,17 +896,14 @@ void CassetteDeck::paint (juce::Graphics& g)
 
     // The cassette lies on the desk; its shadow follows the tilted outline but still falls
     // away from the lamp (down and to the right).
-    Path outline;
-    outline.addRoundedRectangle (Rectangle<float> (0.0f, 0.0f, casW, casH), 22.0f);
-    outline.applyTransform (cassetteTransform);
-    DropShadow (Colour (0x90000000), 40, { 22, 26 }).drawForPath (g, outline);
-    DropShadow (Colour (0x70000000), 8, { 5, 6 }).drawForPath (g, outline);
+    g.drawImageAt (cassetteShadow, 0, 0);
 }
 
 void CassetteDeck::paintCassette (juce::Graphics& g)
 {
     paintShell (g);
     paintLabel (g);
+    paintKnobShadows (g);
     paintWindow (g);
     paintBottom (g);
     g.drawImageAt (wear, 0, 0);
@@ -858,6 +936,25 @@ void CassetteDeck::paintOverChildren (juce::Graphics& g)
     falloff.addColour (0.68, Colour (0xdc000000));
     g.setGradientFill (falloff);
     g.fillRect (area);
+}
+
+void CassetteDeck::paintKnobShadows (juce::Graphics& g)
+{
+    // Each knob is about 6 mm tall; its shadow points straight away from the lamp, so the
+    // knobs' shadows fan out slightly, and grows longer the further the knob is from the lamp.
+    using namespace juce;
+    constexpr float knobHeight = 60.0f;
+    for (auto& k : knobs)
+    {
+        float radius = 0.0f;
+        const auto c = CassetteLookAndFeel::knobGeometry (k.slider.getBounds().toFloat(), radius);
+        const auto cast = CassetteLookAndFeel::castShadow (getLocalPoint (&body, c), knobHeight);
+
+        Graphics::ScopedSaveState s (g);
+        g.addTransform (AffineTransform::rotation (-CassetteLookAndFeel::worldRotation, c.x, c.y));
+        DropShadow (Colour (0x80000000), roundToInt (4.0f + CassetteLookAndFeel::penumbra (knobHeight) * 0.5f), {})
+            .drawForPath (g, sweptCircle (c, radius * 0.97f, cast));
+    }
 }
 
 void CassetteDeck::paintDesk (juce::Graphics& g)

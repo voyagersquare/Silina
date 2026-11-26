@@ -23,7 +23,22 @@ public:
     void drawButtonText (juce::Graphics&, juce::TextButton&, bool highlighted, bool down) override;
     void drawToggleButton (juce::Graphics&, juce::ToggleButton&, bool highlighted, bool down) override;
 
-    static void drawDialKnob (juce::Graphics&, juce::Point<float> centre, float radius, float position, int wearSeed = 0);
+    static void drawDialKnob (juce::Graphics&, juce::Point<float> centre, float radius, float position, int wearSeed = 0,
+                              juce::Point<float> worldCentre = {});
+
+    // The desk lamp as a point light: position over the desk (scene coordinates, 10 px = 1 mm),
+    // height of the bulb above the desk, and the size of the shade opening (softens shadows).
+    static inline juce::Point<float> lampPosition { -950.0f, -1160.0f };
+    static inline float lampHeight = 3500.0f;
+    static inline float lampAperture = 900.0f;
+    static inline juce::Component* scene = nullptr;
+
+    // Where the shadow of a point at the given height ends up, relative to its foot (world space).
+    static juce::Point<float> castShadow (juce::Point<float> worldPosition, float height) noexcept;
+    // Width of the soft edge of that shadow.
+    static float penumbra (float height) noexcept;
+    // Centre and radius of the dial inside a knob component.
+    static juce::Point<float> knobGeometry (juce::Rectangle<float> bounds, float& radius) noexcept;
 
     // Rotation of the cassette on the desk. Shadows and highlights are counter-rotated by this so
     // they keep pointing away from / towards the desk lamp, which does not move.
@@ -41,6 +56,7 @@ public:
 
     explicit CassetteDeck (SilaAudioProcessor&);
     ~CassetteDeck() override;
+
 
     void paint (juce::Graphics&) override;
     void paintOverChildren (juce::Graphics&) override;
@@ -69,6 +85,7 @@ private:
     void refreshSpeedButtons();
 
     void paintCassette (juce::Graphics&);
+    void paintKnobShadows (juce::Graphics&);
     void paintDesk (juce::Graphics&);
     void paintPapers (juce::Graphics&);
     void paintShell (juce::Graphics&);
@@ -100,6 +117,7 @@ private:
     juce::AffineTransform cassetteTransform;
     juce::Image desk;
     juce::Image wear; // scratches, grime and stains over the cassette
+    juce::Image cassetteShadow;
 
     float reelAngleLeft = 0.0f, reelAngleRight = 0.7f;
     float tapePosition = 0.35f; // 0 = all tape on the left reel, 1 = all on the right
