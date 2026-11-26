@@ -1,6 +1,6 @@
 # Sila 0.3.0
 
-**Sila** je tape saturation plugin (VST3 + Standalone, Windows x64) by Voyagersquare.
+**Sila** je tape saturation plugin (VST3, Windows x64) by Voyagersquare.
 Sučelje je kazeta koja leži na drvenom stolu među papirima s bilješkama. Kontrole su crni bakelitni
 brojčanici (0–10) na INDEX naljepnici; trenutna vrijednost je ispod crne oznake iznad brojčanika.
 Čim se plugin otvori, koluti se okreću kao u kasetofonu: manji namotaj vrti se brže, a traka se
@@ -54,7 +54,9 @@ Opterećenje procesora: oko 7 % jedne jezgre za stereo na 44,1 kHz.
 ## Build
 
 Windows: pokreni `Build-Windows.cmd` (Visual Studio 2022 s C++ i CMake alatima).
-GitHub Actions gradi VST3 + Standalone, pokreće testove i pluginval (strictness 5) te objavljuje prijenosni paket.
+GitHub Actions gradi VST3, pokreće testove i pluginval (strictness 5), izrađuje **Windows installer** (Inno Setup, samo VST3)
+te ga testira (instalacija, popravak, pluginval na instaliranom pluginu, deinstalacija). Objavljuje installer i prijenosni ZIP.
+Upute za instalaciju: [docs/INSTALLER-HR.md](docs/INSTALLER-HR.md).
 
 ```bash
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release

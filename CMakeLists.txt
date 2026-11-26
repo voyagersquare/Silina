@@ -29,7 +29,7 @@ juce_add_plugin(Sila
   EDITOR_WANTS_KEYBOARD_FOCUS FALSE
   COPY_PLUGIN_AFTER_BUILD FALSE
   VST3_CATEGORIES Fx Distortion
-  FORMATS VST3 Standalone)
+  FORMATS VST3)
 
 juce_generate_juce_header(Sila)
 target_sources(Sila PRIVATE
