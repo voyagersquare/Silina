@@ -4,7 +4,7 @@
 Sučelje je kazeta koja leži na drvenom stolu među papirima s bilješkama. Kontrole su crni bakelitni
 brojčanici (0–10) na INDEX naljepnici; trenutna vrijednost je ispod crne oznake iznad brojčanika.
 Čim se plugin otvori, koluti se okreću kao u kasetofonu: manji namotaj vrti se brže, a traka se
-polako premotava s lijevog na desni kolut. Sav tekst je ručno pisan (font Covered By Your Grace).
+polako premotava s lijevog na desni kolut. Sav tekst je ručno pisan (font Covered By Your Grace). Kaseta je položena ukoso, nagnuta 25° ulijevo; sjene i dalje padaju od lampe, dolje desno.
 Sve izgleda staro i korišteno: izgrebana i zaprljana kaseta, požutjela naljepnica s izlizanom narančastom
 bojom, izgreban stol s mrljama od soka i stari papiri s mrljama, preklopima i savijenim kutovima. Svjetlo dolazi
 od stolne lampe gore lijevo: najsvjetlije je na sredini kasete, prema rubovima stola tamnije, a sjene padaju dolje desno.

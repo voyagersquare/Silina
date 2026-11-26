@@ -24,14 +24,20 @@ public:
     void drawToggleButton (juce::Graphics&, juce::ToggleButton&, bool highlighted, bool down) override;
 
     static void drawDialKnob (juce::Graphics&, juce::Point<float> centre, float radius, float position, int wearSeed = 0);
+
+    // Rotation of the cassette on the desk. Shadows and highlights are counter-rotated by this so
+    // they keep pointing away from / towards the desk lamp, which does not move.
+    static inline float worldRotation = 0.0f;
+    static juce::Point<int> worldOffset (int dx, int dy) noexcept;
 };
 
 // The cassette lying on a wooden desk, drawn at a fixed logical size and scaled by the editor.
 class CassetteDeck : public juce::Component, private juce::Timer
 {
 public:
-    static constexpr int logicalWidth = 1400;
-    static constexpr int logicalHeight = 820;
+    static constexpr int logicalWidth = 1500;
+    static constexpr int logicalHeight = 1080;
+    static constexpr float tiltDegrees = -25.0f; // tilted to the left (anticlockwise)
 
     explicit CassetteDeck (SilaAudioProcessor&);
     ~CassetteDeck() override;
@@ -44,7 +50,8 @@ public:
     juce::Slider* findKnob (const juce::String& paramId) noexcept;
     juce::TextButton& getSpeedButton (int index) noexcept { return speedButtons[(size_t) index]; }
     juce::ToggleButton& getAutoGainButton() noexcept { return autoGain; }
-    juce::Rectangle<float> getCassetteBounds() const noexcept { return cassette; }
+    juce::Component& getCassette() noexcept { return body; }
+    juce::Point<float> getCassetteCentre() const noexcept { return cassetteCentre; }
     float getReelAngle() const noexcept { return reelAngleLeft; }
     float getTapePosition() const noexcept { return tapePosition; }
     void advanceAnimation (float seconds);
@@ -61,6 +68,7 @@ private:
     void setSpeed (int index);
     void refreshSpeedButtons();
 
+    void paintCassette (juce::Graphics&);
     void paintDesk (juce::Graphics&);
     void paintPapers (juce::Graphics&);
     void paintShell (juce::Graphics&);
@@ -81,7 +89,15 @@ private:
     juce::ToggleButton autoGain { "AUTO GAIN" };
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> autoGainAttachment;
 
-    juce::Rectangle<float> cassette;
+    // The cassette itself: painted by the deck, rotated as a whole with its controls.
+    struct Body : public juce::Component
+    {
+        std::function<void (juce::Graphics&)> painter;
+        void paint (juce::Graphics& g) override { if (painter) painter (g); }
+    };
+    Body body;
+    juce::Point<float> cassetteCentre;
+    juce::AffineTransform cassetteTransform;
     juce::Image desk;
     juce::Image wear; // scratches, grime and stains over the cassette
 

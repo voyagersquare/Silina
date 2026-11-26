@@ -221,14 +221,14 @@ namespace
         Graphics g (image);
         const Colour juice (0xff5c1c0c), cola (0xff2a140a);
 
-        drawStain (g, { 108.0f, 58.0f }, 46.0f, juice, 11, 2.0f);
-        drawStain (g, { 1318.0f, 498.0f }, 40.0f, cola, 12, 1.8f);
-        drawStain (g, { 640.0f, 790.0f }, 52.0f, juice, 13, 1.8f);
-        drawStain (g, { 1250.0f, 790.0f }, 34.0f, juice, 14, 1.6f);
-        drawStain (g, { 120.0f, 630.0f }, 44.0f, cola, 15, 1.8f);
-        drawSplash (g, { 160.0f, 760.0f }, 26.0f, juice, 21);
-        drawSplash (g, { 1350.0f, 30.0f }, 22.0f, juice, 22);
-        drawSplash (g, { 420.0f, 40.0f }, 18.0f, cola, 23);
+        drawStain (g, { 470.0f, 120.0f }, 46.0f, juice, 11, 2.0f);
+        drawStain (g, { 1330.0f, 760.0f }, 44.0f, cola, 12, 1.8f);
+        drawStain (g, { 1080.0f, 990.0f }, 52.0f, juice, 13, 1.8f);
+        drawStain (g, { 1420.0f, 300.0f }, 34.0f, juice, 14, 1.6f);
+        drawStain (g, { 120.0f, 560.0f }, 44.0f, cola, 15, 1.8f);
+        drawSplash (g, { 300.0f, 980.0f }, 26.0f, juice, 21);
+        drawSplash (g, { 1250.0f, 120.0f }, 22.0f, juice, 22);
+        drawSplash (g, { 620.0f, 60.0f }, 18.0f, cola, 23);
 
         Random r (4242);
         const Rectangle<float> all (0.0f, 0.0f, (float) image.getWidth(), (float) image.getHeight());
@@ -244,7 +244,7 @@ namespace
         }
 
         // Worn varnish where hands rest: duller, lighter patches.
-        for (auto c : { Point<float> (700.0f, 790.0f), Point<float> (90.0f, 420.0f) })
+        for (auto c : { Point<float> (1200.0f, 1000.0f), Point<float> (250.0f, 250.0f) })
         {
             g.setGradientFill (ColourGradient (Colour (0x22e8c9a0), c, Colour (0x00e8c9a0), c.translated (220.0f, 0.0f), true));
             g.fillEllipse (Rectangle<float> (440.0f, 260.0f).withCentre (c));
@@ -484,20 +484,33 @@ CassetteLookAndFeel::CassetteLookAndFeel()
     setColour (juce::ToggleButton::textColourId, colours::ink);
 }
 
+juce::Point<int> CassetteLookAndFeel::worldOffset (int dx, int dy) noexcept
+{
+    const auto p = juce::Point<float> ((float) dx, (float) dy).transformedBy (juce::AffineTransform::rotation (-worldRotation));
+    return p.roundToInt();
+}
+
 void CassetteLookAndFeel::drawDialKnob (juce::Graphics& g, juce::Point<float> c, float radius, float pos, int wearSeed)
 {
     using namespace juce;
     const auto disc = [c] (float r) { return Rectangle<float> (r * 2.0f, r * 2.0f).withCentre (c); };
 
+    // Everything lit by the lamp is drawn in "world" orientation, undoing the cassette's tilt.
+    const auto toWorld = AffineTransform::rotation (-worldRotation, c.x, c.y);
+
     // Soft shadow on the label.
     Path body;
     body.addEllipse (disc (radius));
-    DropShadow (Colour (0x80000000), 12, { 6, 8 }).drawForPath (g, body);
+    {
+        Graphics::ScopedSaveState s (g);
+        g.addTransform (toWorld);
+        DropShadow (Colour (0x80000000), 12, { 6, 8 }).drawForPath (g, body);
 
-    // Black bakelite skirt.
-    g.setGradientFill (ColourGradient (Colour (0xff3a3835), c.x - radius * 0.3f, c.y - radius * 0.4f,
-                                       Colour (0xff0b0a0a), c.x + radius, c.y + radius, true));
-    g.fillEllipse (disc (radius));
+        // Black bakelite skirt.
+        g.setGradientFill (ColourGradient (Colour (0xff3a3835), c.x - radius * 0.3f, c.y - radius * 0.4f,
+                                           Colour (0xff0b0a0a), c.x + radius, c.y + radius, true));
+        g.fillEllipse (disc (radius));
+    }
 
     // Numbered scale rotates with the knob; the current value sits under the fixed index mark.
     const float offset = -pos * dialSweep;
@@ -526,6 +539,7 @@ void CassetteLookAndFeel::drawDialKnob (juce::Graphics& g, juce::Point<float> c,
     {
         Graphics::ScopedSaveState s (g);
         g.reduceClipRegion (body);
+        g.addTransform (toWorld);
         g.setGradientFill (ColourGradient (Colour (0x40ffffff), c.x - radius * 0.35f, c.y - radius * 0.75f,
                                            Colour (0x00ffffff), c.x, c.y, true));
         g.fillEllipse (Rectangle<float> (radius * 1.5f, radius * 0.9f).withCentre ({ c.x - radius * 0.2f, c.y - radius * 0.5f }));
@@ -543,7 +557,7 @@ void CassetteLookAndFeel::drawDialKnob (juce::Graphics& g, juce::Point<float> c,
                        Colour (0xffffffff), Colour (0xff000000), 0.6f);
     }
     Path polished;
-    polished.addCentredArc (c.x, c.y, radius - 1.5f, radius - 1.5f, 0.0f, -2.2f, -0.2f, true);
+    polished.addCentredArc (c.x, c.y, radius - 1.5f, radius - 1.5f, 0.0f, -2.2f - worldRotation, -0.2f - worldRotation, true);
     g.setColour (Colour (0x28ffffff));
     g.strokePath (polished, PathStrokeType (2.0f));
 
@@ -559,6 +573,8 @@ void CassetteLookAndFeel::drawDialKnob (juce::Graphics& g, juce::Point<float> c,
         if (i == 0) cap.startNewSubPath (p); else cap.lineTo (p);
     }
     cap.closeSubPath();
+    Graphics::ScopedSaveState capState (g);
+    g.addTransform (toWorld);
     DropShadow (Colour (0x90000000), 6, { 3, 4 }).drawForPath (g, cap);
     g.setGradientFill (ColourGradient (Colour (0xff45423f), c.x - capR * 0.6f, c.y - capR * 0.7f,
                                        Colour (0xff080707), c.x + capR, c.y + capR, true));
@@ -651,7 +667,14 @@ void CassetteLookAndFeel::drawToggleButton (juce::Graphics& g, juce::ToggleButto
 CassetteDeck::CassetteDeck (SilaAudioProcessor& p) : processor (p)
 {
     setLookAndFeel (&lookAndFeel);
-    cassette = { 200.0f, 86.0f, casW, casH };
+    CassetteLookAndFeel::worldRotation = juce::degreesToRadians (tiltDegrees);
+    cassetteCentre = { logicalWidth * 0.5f, logicalHeight * 0.5f };
+    cassetteTransform = juce::AffineTransform::rotation (CassetteLookAndFeel::worldRotation, casW * 0.5f, casH * 0.5f)
+                            .translated (cassetteCentre.x - casW * 0.5f, cassetteCentre.y - casH * 0.5f);
+    body.painter = [this] (juce::Graphics& g) { paintCassette (g); };
+    body.setBounds (0, 0, (int) casW, (int) casH);
+    body.setTransform (cassetteTransform);
+    addAndMakeVisible (body);
     setOpaque (true);
 
     // The desk texture is generated once and shared by every editor instance.
@@ -684,7 +707,7 @@ CassetteDeck::CassetteDeck (SilaAudioProcessor& p) : processor (p)
             k.slider.setDoubleClickReturnValue (true, param->convertFrom0to1 (param->getDefaultValue()));
 
         k.slider.setTitle (knobSpecs[i].label);
-        addAndMakeVisible (k.slider);
+        body.addAndMakeVisible (k.slider);
     }
 
     const char* speedNames[] = { "7.5", "15", "30" };
@@ -695,12 +718,12 @@ CassetteDeck::CassetteDeck (SilaAudioProcessor& p) : processor (p)
         b.setClickingTogglesState (false);
         b.setTitle (juce::String (speedNames[i]) + " IPS");
         b.onClick = [this, i] { setSpeed (i); };
-        addAndMakeVisible (b);
+        body.addAndMakeVisible (b);
     }
 
     autoGainAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (state, ids::autoGain, autoGain);
     autoGain.setTitle ("Auto gain");
-    addAndMakeVisible (autoGain);
+    body.addAndMakeVisible (autoGain);
 
     refreshSpeedButtons();
     setSize (logicalWidth, logicalHeight);
@@ -723,7 +746,7 @@ juce::Slider* CassetteDeck::findKnob (const juce::String& paramId) noexcept
 
 void CassetteDeck::resized()
 {
-    const auto origin = cassette.getPosition();
+    const juce::Point<float> origin;
     for (size_t i = 0; i < knobs.size(); ++i)
         knobs[i].slider.setBounds (juce::Rectangle<float> (knobLeft + knobWidth * (float) i, knobTop, knobWidth, knobHeight)
                                        .translated (origin.x, origin.y).toNearestInt());
@@ -779,7 +802,7 @@ void CassetteDeck::timerCallback()
 {
     advanceAnimation (1.0f / 30.0f);
     refreshSpeedButtons();
-    repaint (windowArea.translated (cassette.getX(), cassette.getY()).expanded (4).toNearestInt());
+    body.repaint (windowArea.expanded (4).toNearestInt());
 }
 
 //==============================================================================
@@ -790,15 +813,17 @@ void CassetteDeck::paint (juce::Graphics& g)
     paintDesk (g);
     paintPapers (g);
 
-    // The cassette lies on the desk.
+    // The cassette lies on the desk; its shadow follows the tilted outline but still falls
+    // away from the lamp (down and to the right).
     Path outline;
-    outline.addRoundedRectangle (cassette, 22.0f);
+    outline.addRoundedRectangle (Rectangle<float> (0.0f, 0.0f, casW, casH), 22.0f);
+    outline.applyTransform (cassetteTransform);
     DropShadow (Colour (0x90000000), 40, { 22, 26 }).drawForPath (g, outline);
     DropShadow (Colour (0x70000000), 8, { 5, 6 }).drawForPath (g, outline);
+}
 
-    Graphics::ScopedSaveState save (g);
-    g.addTransform (AffineTransform::translation (cassette.getX(), cassette.getY()));
-
+void CassetteDeck::paintCassette (juce::Graphics& g)
+{
     paintShell (g);
     paintLabel (g);
     paintWindow (g);
@@ -814,7 +839,7 @@ void CassetteDeck::paintOverChildren (juce::Graphics& g)
     // Desk lamp above the upper left, like a reading lamp at night: a bright, warm pool of
     // light on the cassette and a fast fall-off into a dark room, where the desk and the
     // papers are only just visible.
-    const auto light = cassette.getCentre().translated (-25.0f, -35.0f);
+    const auto light = cassetteCentre.translated (-25.0f, -35.0f);
     const float stretch = 1.2f; // the pool is wider than it is tall
 
     Graphics::ScopedSaveState s (g);
@@ -845,30 +870,30 @@ void CassetteDeck::paintPapers (juce::Graphics& g)
     using namespace juce;
     const Colour paperWhite (0xffeae0c8), paperOld (0xffdccfae), sticky (0xffe2c160);
 
-    // Left: a couple of session sheets, partly under the cassette.
-    drawNotePaper (g, { -60.0f, 170.0f, 330.0f, 440.0f }, -0.16f, paperOld, {}, true, colours::pencil, 26.0f, 101);
-    drawNotePaper (g, { -30.0f, 120.0f, 320.0f, 430.0f }, -0.07f, paperWhite,
+    // Top left: session sheets, partly under the cassette.
+    drawNotePaper (g, { -40.0f, 60.0f, 340.0f, 440.0f }, -0.20f, paperOld, {}, true, colours::pencil, 26.0f, 101);
+    drawNotePaper (g, { 30.0f, 20.0f, 330.0f, 430.0f }, -0.10f, paperWhite,
                    { "", "Session - mix bus", "vox: +3 dB in", "tape 15 IPS", "bias ~50 %", "wow - just a bit!", "flutter 15 %" },
                    true, colours::pencil, 26.0f, 102);
 
-    // Right: track list and a sticky note.
-    drawNotePaper (g, { 1190.0f, 50.0f, 300.0f, 400.0f }, 0.12f, paperWhite,
+    // Bottom right: track list and a sticky note.
+    drawNotePaper (g, { 1150.0f, 620.0f, 320.0f, 420.0f }, 0.14f, paperWhite,
                    { "", "SIDE A", "1. Intro", "2. Nocna voznja", "3. Kasetofon", "4. Sila (dub)", "" },
                    true, colours::penBlue, 26.0f, 103);
-    drawNotePaper (g, { 1200.0f, 560.0f, 190.0f, 180.0f }, -0.10f, sticky,
+    drawNotePaper (g, { 1250.0f, 40.0f, 200.0f, 190.0f }, 0.10f, sticky,
                    { "mix petak!", "", "ne zaboravi", "master -1 dB" }, false, colours::ink, 26.0f, 104);
 
-    // A small paper at the bottom left.
-    drawNotePaper (g, { 30.0f, 660.0f, 240.0f, 200.0f }, 0.09f, paperWhite,
+    // Bottom left: a small note.
+    drawNotePaper (g, { 40.0f, 800.0f, 250.0f, 220.0f }, 0.07f, paperWhite,
                    { "", "Trake:", "C60 x 3" }, true, colours::pencil, 24.0f, 105);
 }
 
 void CassetteDeck::paintShell (juce::Graphics& g)
 {
     using namespace juce;
-    const Rectangle<float> body { 0.0f, 0.0f, casW, casH };
+    const Rectangle<float> outer { 0.0f, 0.0f, casW, casH };
     Path shell;
-    shell.addRoundedRectangle (body, 22.0f);
+    shell.addRoundedRectangle (outer, 22.0f);
 
     g.setGradientFill (ColourGradient (colours::shellLight, 0.0f, 0.0f, colours::shellDark, 0.0f, casH, false));
     g.fillPath (shell);
@@ -906,7 +931,7 @@ void CassetteDeck::paintShell (juce::Graphics& g)
     g.strokePath (shell, PathStrokeType (3.0f));
     g.setColour (Colour (0x55ffffff));
     Path inner;
-    inner.addRoundedRectangle (body.reduced (4.0f), 19.0f);
+    inner.addRoundedRectangle (outer.reduced (4.0f), 19.0f);
     g.strokePath (inner, PathStrokeType (1.2f));
 
     paintScrew (g, { 30.0f, 30.0f }, 11.0f, 0.3f);
@@ -919,7 +944,7 @@ void CassetteDeck::paintLabel (juce::Graphics& g)
 {
     using namespace juce;
 
-    DropShadow (Colour (0x48000000), 6, { 2, 2 }).drawForRectangle (g, labelArea.toNearestInt());
+    DropShadow (Colour (0x48000000), 6, CassetteLookAndFeel::worldOffset (2, 2)).drawForRectangle (g, labelArea.toNearestInt());
     g.setGradientFill (ColourGradient (colours::paper, 0.0f, labelArea.getY(), colours::paperShade, 0.0f, labelArea.getBottom(), false));
     g.fillRoundedRectangle (labelArea, 5.0f);
 
@@ -1142,10 +1167,10 @@ SilaAudioProcessorEditor::SilaAudioProcessorEditor (SilaAudioProcessor& p)
 
     const int w = sila::CassetteDeck::logicalWidth, h = sila::CassetteDeck::logicalHeight;
     setResizable (true, true);
-    setResizeLimits (w / 2, h / 2, w * 3 / 2, h * 3 / 2);
+    setResizeLimits (w * 4 / 10, h * 4 / 10, w * 12 / 10, h * 12 / 10);
     if (auto* aspect = getConstrainer())
         aspect->setFixedAspectRatio ((double) w / (double) h);
-    setSize (w * 8 / 10, h * 8 / 10);
+    setSize (w * 7 / 10, h * 7 / 10);
 }
 
 void SilaAudioProcessorEditor::paint (juce::Graphics& g)

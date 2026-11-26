@@ -268,7 +268,7 @@ int main (int argc, char** argv)
                               sila::ids::emphasis, sila::ids::mix, sila::ids::output })
             {
                 auto* knob = deck.findKnob (id);
-                allKnobs &= knob != nullptr && knob->isVisible() && knob->getBottom() < (int) deck.getCassetteBounds().getY() + 256;
+                allKnobs &= knob != nullptr && knob->isVisible() && knob->getParentComponent() == &deck.getCassette() && knob->getBottom() < 256;
             }
             require (allKnobs, "all seven knobs sit in the upper label area");
 
@@ -282,9 +282,9 @@ int main (int argc, char** argv)
                      "turning INPUT updates the parameter");
             inputKnob->setValue (6.0, juce::sendNotificationSync);
 
-            editor->setSize (1400 * 3 / 2, 820 * 3 / 2);
-            require (std::abs (deck.getTransform().mat00 - 1.5f) < 0.01f, "editor scales the cassette when resized");
-            editor->setSize (1400, 820);
+            editor->setSize (1500 * 6 / 5, 1080 * 6 / 5);
+            require (std::abs (deck.getTransform().mat00 - 1.2f) < 0.01f, "editor scales the cassette when resized");
+            editor->setSize (1500, 1080);
 
             // Run some audio so the reels turn and the arrow glows, then snapshot.
             setParam (p, sila::ids::input, 14.0f);
