@@ -1,0 +1,10 @@
+/build*/
+/.vs/
+/.idea/
+/out/
+*.user
+*.suo
+.DS_Store
+*.wav
+/package/
+/validation/
