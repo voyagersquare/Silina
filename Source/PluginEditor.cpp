@@ -49,7 +49,7 @@ namespace
     const juce::Rectangle<float> glassArea   { 392.0f, 281.0f, 216.0f, 100.0f };
     const juce::Point<float> reelLeft  { 292.0f, 331.0f };
     const juce::Point<float> reelRight { 708.0f, 331.0f };
-    constexpr float wellRadius = 52.0f, hubRadius = 38.0f, fullPackRadius = 178.0f;
+    constexpr float wellRadius = 52.0f, hubRadius = 46.5f, fullPackRadius = 178.0f;
     constexpr float knobTop = 72.0f, knobHeight = 176.0f, knobLeft = 76.0f, knobWidth = 121.0f;
     constexpr float dialSweep = juce::MathConstants<float>::pi * 5.0f / 3.0f; // 300 degrees
 
